@@ -67,7 +67,6 @@ protected:
    cv::Point2d Dlast;
 
    std::vector<std::vector<cv::Point2d>> Dstore;
-   std::vector<RealignmentResult> results;
 
    int nD = 10;
 //   int nx;

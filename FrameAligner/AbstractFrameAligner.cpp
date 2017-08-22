@@ -19,16 +19,16 @@ std::string realignmentTypeString(RealignmentType t)
 }
 
 
-std::unique_ptr<AbstractFrameAligner> AbstractFrameAligner::createFrameAligner(RealignmentParameters params)
+AbstractFrameAligner* AbstractFrameAligner::createFrameAligner(RealignmentParameters params)
 {
    switch (params.type)
    {
    case RealignmentType::None:
       return nullptr;
    case RealignmentType::Warp:
-      return std::unique_ptr<AbstractFrameAligner>(new FrameWarpAligner(params));
+      return new FrameWarpAligner(params);
    default: // handles both Translation and RigidBody
-      return std::unique_ptr<AbstractFrameAligner>(new RigidFrameAligner(params));
+      return new RigidFrameAligner(params);
    }
 }
 

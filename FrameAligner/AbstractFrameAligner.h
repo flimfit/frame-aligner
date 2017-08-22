@@ -75,7 +75,7 @@ public:
 
    virtual ~AbstractFrameAligner() {};
 
-   static std::unique_ptr<AbstractFrameAligner> createFrameAligner(RealignmentParameters params);
+   static AbstractFrameAligner* createFrameAligner(RealignmentParameters params);
 
    virtual bool empty() = 0;
    virtual void clear() = 0;
@@ -98,10 +98,18 @@ public:
 
    virtual void reprocess() {};
 
+   RealignmentResult& getResult(int frame)
+   {
+      if (frame >= n_frames) throw std::runtime_error("Frame index too large");
+      return results[frame];
+   }
+
 protected:
    RealignmentParameters realign_params;
    ImageScanParameters image_params;
    cv::Mat reference;
    int n_frames = 1;
+
+   std::vector<RealignmentResult> results;
 };
 

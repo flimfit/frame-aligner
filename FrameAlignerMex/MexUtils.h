@@ -164,7 +164,7 @@ inline cv::Mat getCvMat(const mxArray* im)
       mexErrMsgIdAndTxt("FLIMfit:invalidInput",
          "Image was not of an acceptable type");
 
-   AssertInputCondition(mxIsDouble(im));
+   AssertInputCondition(!mxIsComplex(im));
    AssertInputCondition(mxGetNumberOfDimensions(im) == 2);
    int n = (int) mxGetN(im);
    int m = (int) mxGetM(im);

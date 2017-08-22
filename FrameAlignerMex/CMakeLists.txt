@@ -35,6 +35,6 @@ matlab_add_mex(NAME FrameAlignerMex SRC ${SOURCE} ${HEADERS} $<TARGET_OBJECTS:Fr
 include_directories(${FrameAligner_INCLUDE_DIRS})
 target_link_libraries(FrameAlignerMex ${FrameAligner_LIBRARIES})
 
-if(FlimReaderMEX_OUT_DIR)
-   add_custom_command(TARGET FrameAlignerMex POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:FrameAlignerMex> ${FlimReaderMEX_OUT_DIR})
+if(FrameAlignerMEX_OUT_DIR)
+   add_custom_command(TARGET FrameAlignerMex POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:FrameAlignerMex> ${FrameAlignerMEX_OUT_DIR})
 endif()
