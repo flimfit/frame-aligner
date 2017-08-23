@@ -3,8 +3,8 @@ set(CMAKE_CXX_STANDARD 14)
 
 include("cmake/HunterGate.cmake")
 HunterGate(
-    URL "https://github.com/ruslo/hunter/archive/v0.18.43.tar.gz"
-    SHA1 "d2c8c42cd07f7cefe18fd9a9b9c13114b1a15a27"
+    URL "https://github.com/ruslo/hunter/archive/v0.19.78.tar.gz"
+    SHA1 "642dd750712e383c836bbdc6ab4a16efad135c5a"
     LOCAL
 )
 
