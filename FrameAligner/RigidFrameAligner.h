@@ -1,5 +1,7 @@
 #pragma once
 
+#include <fftw3.h>
+
 #include "AbstractFrameAligner.h"
 #include <atomic>
 
