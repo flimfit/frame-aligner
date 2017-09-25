@@ -108,7 +108,7 @@ RealignmentResult RigidFrameAligner::addFrame(int frame_t, const cv::Mat& frame_
    return r; // TODO
 }
 
-void RigidFrameAligner::shiftPixel(int frame, double& x, double& y)
+void RigidFrameAligner::shiftPixel(int frame, double& x, double& y, double& z)
 {
    cv::Mat pos(3, 1, CV_64F, cv::Scalar(0));
    cv::Mat tr_pos(3, 1, CV_64F, cv::Scalar(0));
@@ -126,6 +126,7 @@ void RigidFrameAligner::shiftPixel(int frame, double& x, double& y)
 
    x = (int) std::round(tr_pos.at<double>(0) - shift.x);
    y = (int) std::round(tr_pos.at<double>(1) - shift.y);
+   z = 0;
 }
 
 
