@@ -34,17 +34,21 @@ AbstractFrameAligner* AbstractFrameAligner::createFrameAligner(RealignmentParame
 
 cv::Mat downsample(const cv::Mat& im1, int factor)
 {
-   int w = im1.size().width;
-   int h = im1.size().height;
+   int nz = im1.size[Z];
+   int w = im1.size[X];
+   int h = im1.size[Y];
 
    int nh = ceil(h / (double)factor);
    int nw = ceil(w / (double)factor);
 
-   cv::Mat im2(nh, nw, im1.type(), cv::Scalar(0));
+   std::vector<int> new_size = {nz, nh, nw};
 
-   for (int y = 0; y < h; y++)
-      for (int x = 0; x < w; x++)
-         im2.at<float>(y / factor, x / factor) += im1.at<float>(y, x);
+   cv::Mat im2(new_size, im1.type(), cv::Scalar(0));
+
+   for (int z = 0; z < nz; z++)
+      for (int y = 0; y < h; y++)
+         for (int x = 0; x < w; x++)
+            im2.at<float>(z, y / factor, x / factor) += im1.at<float>(z, y, x);
 
    return im2;
 }

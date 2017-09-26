@@ -78,11 +78,6 @@ void interpolatePoint3d(const std::vector<cv::Point3d>& Ds, std::vector<cv::Poin
 FrameWarpAligner::FrameWarpAligner(RealignmentParameters params)
 {
    realign_params = params;
-
-   RealignmentParameters rigid_params = params;
-   params.type = RealignmentType::Translation;
-   params.spatial_binning = 4;
-   rigid_aligner = std::unique_ptr<RigidFrameAligner>(new RigidFrameAligner(params));
 }
 
 cv::Mat FrameWarpAligner::reshapeForOutput(cv::Mat& m)
@@ -130,28 +125,26 @@ void FrameWarpAligner::setNumberOfFrames(int n_frames_)
    
    Dstore.resize(n_frames, std::vector<cv::Point3d>(nD));
    results.resize(n_frames);
-
-   rigid_aligner->setNumberOfFrames(n_frames);
 }
 
 
 void FrameWarpAligner::setReference(int frame_t, const cv::Mat& reference_)
 {
-   rigid_aligner->setNumberOfFrames(n_frames);
-
    n_x_binned = image_params.n_x / realign_params.spatial_binning;
    n_y_binned = image_params.n_y / realign_params.spatial_binning;
 
    dims = {image_params.n_z, n_x_binned, n_y_binned};
    n_dim = (image_params.n_z > 1) ? 3 : 2;
 
+   phase_correlator = std::unique_ptr<VolumePhaseCorrelator>(new VolumePhaseCorrelator(dims[Z], dims[Y] / 4, dims[X] / 4));   
+
    reference_.copyTo(reference);
    
    reference = reshapeForProcessing(reference);   
    smoothStack(reference, smoothed_reference);
 
-   cv::Mat f = downsample(reference, 4);
-   rigid_aligner->setReference(frame_t, f);
+   cv::Mat f = downsample(reference, phase_downsampling);
+   phase_correlator->setReference((float*) f.data);
 
    nD = realign_params.n_resampling_points;
 
@@ -209,7 +202,7 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
 
    auto model = OptimisationModel(this, frame, raw_frame);
 
-   std::vector<column_vector> starting_point(2, column_vector(nD * n_dim));
+   std::vector<column_vector> starting_point(3, column_vector(nD * n_dim));
 
    // zero starting point
    std::fill(starting_point[0].begin(), starting_point[0].end(), 0);
@@ -220,15 +213,12 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
       interpolatePoint3d(Dstore[frame_t], D);
    D2col(D, starting_point[1], n_dim);
 
-   // rigid starting point // to do for 3d
-   /*
-   cv::Mat ff = downsample(frame, 4);
-   rigid_aligner->addFrame(frame_t, ff);
-   cv::Point2d rigid_shift = rigid_aligner->getRigidShift(frame_t);
-   cv::Point3d rigid_shift_3d(rigid_shift.x, rigid_shift.y, 0);
-   std::vector<cv::Point3d> D_rigid(nD, rigid_shift_3d);
+   // rigid starting point
+   cv::Mat ff = downsample(raw_frame, phase_downsampling);
+   cv::Point3d rigid_shift = phase_correlator->computeShift((float*) ff.data);
+   std::vector<cv::Point3d> D_rigid(nD, rigid_shift  * phase_downsampling);
    D2col(D_rigid, starting_point[2], n_dim);
-   */
+   
 
    double best = std::numeric_limits<double>::max();
    int best_start = 0;

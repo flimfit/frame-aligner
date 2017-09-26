@@ -20,7 +20,8 @@ set(SOURCE
    RigidFrameAligner.cpp
    FrameWarpAligner.cpp
    WriteMultipageTiff.cpp
-   phasecorr3d.cpp
+   VolumePhaseCorrelator.cpp
+#   phasecorr3d.cpp
 )
 
 set(HEADERS
@@ -29,6 +30,7 @@ set(HEADERS
    FrameWarpAligner.h
    LinearInterpolation.h
    WriteMultipageTiff.h
+   VolumePhaseCorrelator.h
 )
 
 set(FrameAligner_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR} ${OpenCV_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} PARENT_SCOPE)

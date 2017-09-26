@@ -1,6 +1,7 @@
 #pragma once
 
-#include "RigidFrameAligner.h"
+#include "AbstractFrameAligner.h"
+#include "VolumePhaseCorrelator.h"
 #include <functional>
 #include <array>
 #include <opencv2/opencv.hpp>
@@ -113,6 +114,8 @@ protected:
    int n_dim = 2;
    int nD = 10;
 
+   int phase_downsampling = 4;
+
    int n_x_binned;
    int n_y_binned;
 
@@ -120,7 +123,7 @@ protected:
    
    std::vector<std::vector<double>> VI_dW_dp_x, VI_dW_dp_y, VI_dW_dp_z;
 
-   std::unique_ptr<RigidFrameAligner> rigid_aligner;
+   std::unique_ptr<VolumePhaseCorrelator> phase_correlator;
 
    friend class OptimisationModel;
 };
