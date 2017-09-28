@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 3.7)
 project(FrameAligner)
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 find_package(OpenCV 3.1 REQUIRED core imgproc highgui )
 find_package(OpenMP REQUIRED)
-find_package(dlib CONFIG REQUIRED)
 find_package(FFTW)
+find_package(dlib REQUIRED)
 
 if(APPLE)
     set(EXTRA_LIBRARIES "-framework Accelerate") # for dlib
