@@ -1,6 +1,8 @@
 #include "FrameWarpAligner.h"
-#include <functional>
 #include "LinearInterpolation.h"
+#include "Cv3dUtils.h"
+
+#include <functional>
 #include <fstream>
 
 double correlation(cv::Mat &image_1, cv::Mat &image_2, cv::Mat &mask)
@@ -82,7 +84,7 @@ FrameWarpAligner::FrameWarpAligner(RealignmentParameters params)
 
 cv::Mat FrameWarpAligner::reshapeForOutput(cv::Mat& m)
 {
-   if (dims[Z] == 1)
+   if ((dims[Z] == 1) && output2d)
       return m.reshape(0, 2, &dims[Y]);
    else
       return m;
@@ -130,6 +132,10 @@ void FrameWarpAligner::setNumberOfFrames(int n_frames_)
 
 void FrameWarpAligner::setReference(int frame_t, const cv::Mat& reference_)
 {
+   rigid_aligner->setNumberOfFrames(n_frames);
+
+   output2d = (reference_.dims == 2);
+
    n_x_binned = image_params.n_x / realign_params.spatial_binning;
    n_y_binned = image_params.n_y / realign_params.spatial_binning;
 
@@ -492,13 +498,6 @@ void FrameWarpAligner::precomputeInterp()
    VI_dW_dp_x.resize(nD, std::vector<double>(max_VI_dW_dp, 0.0));
    VI_dW_dp_y.resize(nD, std::vector<double>(max_VI_dW_dp, 0.0));
    VI_dW_dp_z.resize(nD, std::vector<double>(max_VI_dW_dp, 0.0));
-}
-
-cv::Mat FrameWarpAligner::extractSlice(const cv::Mat& m, int slice)
-{
-   size_t offset = slice * (n_x_binned + n_y_binned) * m.elemSize();
-   cv::Mat out(n_x_binned, n_y_binned, m.type(), m.data + offset);
-   return out;
 }
 
 
