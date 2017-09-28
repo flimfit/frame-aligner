@@ -132,8 +132,6 @@ void FrameWarpAligner::setNumberOfFrames(int n_frames_)
 
 void FrameWarpAligner::setReference(int frame_t, const cv::Mat& reference_)
 {
-   rigid_aligner->setNumberOfFrames(n_frames);
-
    output2d = (reference_.dims == 2);
 
    n_x_binned = image_params.n_x / realign_params.spatial_binning;
