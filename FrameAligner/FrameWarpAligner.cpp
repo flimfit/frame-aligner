@@ -297,7 +297,7 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
    r.unaligned_correlation = correlation(frame, smoothed_reference, m);
    r.coverage = ((double)cv::countNonZero(mask)) / (dims[X] * dims[Y] * dims[Z]);
    
-   cv::Mat intensity_preserving(frame.size(), CV_16U, cv::Scalar(0));
+   cv::Mat intensity_preserving(frame.dims, frame.size, CV_16U, cv::Scalar(0));
    if (r.correlation >= realign_params.correlation_threshold && r.coverage >= realign_params.coverage_threshold)
       warpImageIntensityPreserving(raw_frame, intensity_preserving, D);
    r.realigned_preserving = reshapeForOutput(intensity_preserving);
@@ -329,6 +329,8 @@ double OptimisationModel::operator() (const column_vector& x) const
 
    aligner->warpImage(frame, warped_image, D, -1);
    double rms_error = aligner->computeErrorImage(warped_image, error_image);
+
+   std::cout << "E: " << rms_error << "\n";
    return rms_error;
 }
 
@@ -383,19 +385,21 @@ double FrameWarpAligner::computeErrorImage(cv::Mat& wimg, cv::Mat& error_img)
    double n_include = 0;
 
    double ms_error = 0;
-   for (int p = 0; p < n_px; p++)
-   {
-      if (wimg.at<float>(p) >= 0)
-      {
-         ms_error += error_img.at<float>(p) * error_img.at<float>(p);
-         n_include++;
-      }
-      else
-      {
-         error_img.at<float>(p) = 0;
-         wimg.at<float>(p) = 0;
-      }
-   }
+   for(int z=0; z<dims[Z]; z++)
+      for (int y = 0; y<dims[Y]; y++)
+         for (int x = 0; x < dims[X]; x++)
+         {
+            if (wimg.at<float>(z, y, x) >= 0)
+            {
+               ms_error += error_img.at<float>(z, y, x) * error_img.at<float>(z, y, x);
+               n_include++;
+            }
+            else
+            {
+               error_img.at<float>(z, y, x) = 0;
+               wimg.at<float>(z, y, x) = 0;
+            }
+         }
 
    return ms_error;
 }
@@ -502,14 +506,13 @@ void FrameWarpAligner::precomputeInterp()
 void FrameWarpAligner::computeSteepestDecentImages(const cv::Mat& frame)
 {
    // Evaluate gradient of reference
+
    cv::Mat nabla_Tx(dims, CV_64F);
    cv::Mat nabla_Ty(dims, CV_64F);
    cv::Mat nabla_Tz(dims, CV_64F);
 
-   cv::Range range[] = { cv::Range::all(), cv::Range::all(), cv::Range::all() };
    for(int i=0; i<dims[Z]; i++)
    {
-      range[0] = cv::Range(i,i+1);
       cv::Mat frame_i = extractSlice(frame, i);
 
       cv::Mat nabla_Tx_i = extractSlice(nabla_Tx,i);
@@ -522,7 +525,8 @@ void FrameWarpAligner::computeSteepestDecentImages(const cv::Mat& frame)
       if (i<(dims[Z]-1))
       {
          cv::Mat frame_i1 = extractSlice(frame, i+1);
-         nabla_Tz_i = frame_i1 - frame_i;
+         cv::Mat diff = frame_i - frame_i1;
+         diff.convertTo(nabla_Tz_i, CV_64F);
       }
       else
       {
@@ -531,6 +535,11 @@ void FrameWarpAligner::computeSteepestDecentImages(const cv::Mat& frame)
       }
    }   
 
+   double* nabla_Txd = (double*) nabla_Tx.data;
+   double* nabla_Tyd = (double*) nabla_Ty.data;
+   double* nabla_Tzd = (double*) nabla_Tz.data;
+   double* Dfd = (double*) Df.data;
+
    //#pragma omp parallel for
    for (int i = 1; i < nD; i++)
    {
@@ -538,12 +547,12 @@ void FrameWarpAligner::computeSteepestDecentImages(const cv::Mat& frame)
       int p1 = D_range[i - 1].end;
       for (int p = p0; p < p1; p++)
       {
-         double jac = Df.at<double>(p);
-         VI_dW_dp_x[i][p] = nabla_Tx.at<double>(p) * jac;
-         VI_dW_dp_y[i][p] = nabla_Ty.at<double>(p) * jac;
+         double jac = Dfd[p];
+         VI_dW_dp_x[i][p] = nabla_Txd[p] * jac;
+         VI_dW_dp_y[i][p] = nabla_Tyd[p] * jac;
 
          if (n_dim == 3)
-            VI_dW_dp_z[i][p] = nabla_Tz.at<double>(p) * jac;
+            VI_dW_dp_z[i][p] = nabla_Tzd[p] * jac;
       }
    }
    
@@ -554,12 +563,12 @@ void FrameWarpAligner::computeSteepestDecentImages(const cv::Mat& frame)
       int p1 = D_range[i].end;
       for (int p = p0; p < p1; p++)
       {
-         double jac = 1 - Df.at<double>(p);
-         VI_dW_dp_x[i][p] = nabla_Tx.at<double>(p) * jac;
-         VI_dW_dp_y[i][p] = nabla_Ty.at<double>(p) * jac;
+         double jac = 1 - Dfd[p];
+         VI_dW_dp_x[i][p] = nabla_Txd[p] * jac;
+         VI_dW_dp_y[i][p] = nabla_Tyd[p] * jac;
 
          if (n_dim == 3)
-            VI_dW_dp_z[i][p] = nabla_Tz.at<double>(p) * jac;
+            VI_dW_dp_z[i][p] = nabla_Tzd[p] * jac;
       }
    }
 }
