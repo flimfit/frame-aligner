@@ -16,6 +16,11 @@ find_path(dlib_INCLUDE_DIRS dlib HINTS ${dlib_PKGCONF_INCLUDE_DIRS} $ENV{DLIB_RO
 
 find_library(dlib_LIB NAMES dlib HINTS ${dlib_PKGCONF_LIBRARY_DIRS} $ENV{DLIB_ROOT})
 find_library(dlib_LIB_DEBUG NAMES dlibd HINTS ${dlib_PKGCONF_LIBRARY_DIRS} $ENV{DLIB_ROOT})
+
+if(NOT dlib_LIB_DEBUG)
+   set(dlib_LIB_DEBUG ${dlib_LIB})
+endif()
+
 set(dlib_LIBRARIES optimized ${dlib_LIB} debug ${dlib_LIB_DEBUG})
 message(${dlib_LIBRARIES})
 
