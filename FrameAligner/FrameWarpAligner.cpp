@@ -137,7 +137,7 @@ void FrameWarpAligner::setReference(int frame_t, const cv::Mat& reference_)
    n_x_binned = image_params.n_x / realign_params.spatial_binning;
    n_y_binned = image_params.n_y / realign_params.spatial_binning;
 
-   dims = {image_params.n_z, n_x_binned, n_y_binned};
+   dims = {image_params.n_z, n_y_binned, n_x_binned};
    n_dim = (image_params.n_z > 1) ? 3 : 2;
 
    phase_correlator = std::unique_ptr<VolumePhaseCorrelator>(new VolumePhaseCorrelator(dims[Z], dims[Y] / 4, dims[X] / 4));   
@@ -261,6 +261,7 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
       << l << std::endl;
    */   
 
+   
    try
    {
 	   
@@ -274,7 +275,7 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
    {
       std::cout << e.info;
    }
-
+   
    col2D(x, D, n_dim);
    Dstore[frame_t] = D;
    Dlast = *(D.end() - 2);
@@ -686,9 +687,13 @@ void FrameWarpAligner::warpImage(const cv::Mat& img, cv::Mat& wimg, const std::v
             loc += cv::Point3d(x,y,z);
 
             cv::Point3i loc0(floor(loc.x), floor(loc.y), floor(loc.z));
-            cv::Point3i loc1 = loc0 + cv::Point3i(1, 1, 1);
             cv::Point3d locf(loc.x - loc0.x, loc.y - loc0.y, loc.z - loc0.z);
 
+            cv::Point3i loc1 = loc0;
+            if (loc1.x < (dims[X]-1)) loc1.x++;
+            if (loc1.y < (dims[Y]-1)) loc1.y++;
+            if (loc1.z < (dims[Z]-1)) loc1.z++;
+            
             if (isValidPoint(loc0))
             {
                wimg.at<float>(z, y, x) =
@@ -701,10 +706,10 @@ void FrameWarpAligner::warpImage(const cv::Mat& img, cv::Mat& wimg, const std::v
                if (n_dim == 3)
                   wimg.at<float>(z, y, x) +=
                      locf.z * (
-                        img.at<float>(loc0.z, loc0.y, loc0.x) * (1 - locf.y) * (1 - locf.x) + 
-                        img.at<float>(loc0.z, loc1.y, loc0.x) * (    locf.y) * (1 - locf.x) + 
-                        img.at<float>(loc0.z, loc0.y, loc1.x) * (1 - locf.y) * (    locf.x) + 
-                        img.at<float>(loc0.z, loc1.y, loc1.x) * (    locf.y) * (    locf.x)
+                        img.at<float>(loc1.z, loc0.y, loc0.x) * (1 - locf.y) * (1 - locf.x) + 
+                        img.at<float>(loc1.z, loc1.y, loc0.x) * (    locf.y) * (1 - locf.x) + 
+                        img.at<float>(loc1.z, loc0.y, loc1.x) * (1 - locf.y) * (    locf.x) + 
+                        img.at<float>(loc1.z, loc1.y, loc1.x) * (    locf.y) * (    locf.x)
                      );
             }
                

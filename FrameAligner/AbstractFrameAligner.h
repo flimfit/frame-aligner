@@ -52,7 +52,7 @@ public:
       n_x = std::max(n_x, 1);
       n_y = std::max(n_y, 1);
 
-      if (interline_duration <= line_duration)
+      if (interline_duration < line_duration)
          interline_duration = 1.01 * line_duration;
 
       pixel_duration = line_duration / n_x;

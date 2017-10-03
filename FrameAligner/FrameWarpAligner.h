@@ -88,11 +88,11 @@ protected:
       int validXY = 
             (pt[X] >= 0) &&
             (pt[Y] >= 0) && 
-            (pt[X] < (dims[X] - 1)) &&
-            (pt[Y] < (dims[Y] - 1));
+            (pt[X] <= (dims[X] - 1)) &&
+            (pt[Y] <= (dims[Y] - 1));
 
       if (n_dim == 3)
-         return validXY && (pt[Z] >= 0) && (pt[Z] < (dims[Z] - 1));
+         return validXY && (pt[Z] >= 0) && (pt[Z] <= (dims[Z] - 1));
       else 
          return validXY;            
    }
