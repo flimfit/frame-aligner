@@ -506,39 +506,39 @@ void FrameWarpAligner::precomputeInterp()
 
 void FrameWarpAligner::computeSteepestDecentImages(const cv::Mat& frame)
 {
+
    // Evaluate gradient of reference
 
-   cv::Mat nabla_Tx(dims, CV_64F);
-   cv::Mat nabla_Ty(dims, CV_64F);
-   cv::Mat nabla_Tz(dims, CV_64F);
+   auto padded_dims = dims;
+   padded_dims[Z]++;
+   cv::Mat d0(padded_dims, frame.type());
+   std::copy_n(frame.data, dims[Z]*dims[Y]*dims[X]*frame.elemSize1(), d0.data);
 
-   for(int i=0; i<dims[Z]; i++)
+   cv::Mat dx(dims, frame.type(), d0.data + frame.elemSize1());
+   cv::Mat dy(dims, frame.type(), d0.data + dims[X] * frame.elemSize1());
+   cv::Mat dz(dims, frame.type(), d0.data + dims[Y] * dims[X] * frame.elemSize1());
+
+   cv::Mat nabla_Tx = dx - frame;
+   cv::Mat nabla_Ty = dy - frame;
+   cv::Mat nabla_Tz = dz - frame;
+
+   // Replace invalid entries at end of dimensions
+   for (int z = 0; z < dims[Z]; z++)
    {
-      cv::Mat frame_i = extractSlice(frame, i);
+      for (int y = 0; y < dims[Y]; y++)
+         nabla_Tx.at<float>(z, y, dims[X] - 1) = nabla_Tx.at<float>(z, y, dims[X] - 2);
 
-      cv::Mat nabla_Tx_i = extractSlice(nabla_Tx,i);
-      cv::Mat nabla_Ty_i = extractSlice(nabla_Ty,i);
-      cv::Mat nabla_Tz_i = extractSlice(nabla_Tz,i);
+      for (int x = 0; x < dims[X]; x++)
+         nabla_Tx.at<float>(z, dims[Y] - 1, x) = nabla_Tx.at<float>(z, dims[Y] - 2, x);
+   }
 
-      cv::Scharr(frame_i, nabla_Tx_i, CV_64F, 1, 0, 1.0 / 32.0);
-      cv::Scharr(frame_i, nabla_Ty_i, CV_64F, 0, 1, 1.0 / 32.0);
+   if (dims[Z] > 1)
+      extractSlice(nabla_Tz, dims[Z] - 2).copyTo(extractSlice(nabla_Tz, dims[Z] - 1));
 
-      if (i<(dims[Z]-1))
-      {
-         cv::Mat frame_i1 = extractSlice(frame, i+1);
-         cv::Mat diff = frame_i - frame_i1;
-         diff.convertTo(nabla_Tz_i, CV_64F);
-      }
-      else
-      {
-         cv::Mat nabla_Tz_last = extractSlice(nabla_Tz, i-1);
-         nabla_Tz_last.copyTo(nabla_Tz_i);
-      }
-   }   
 
-   double* nabla_Txd = (double*) nabla_Tx.data;
-   double* nabla_Tyd = (double*) nabla_Ty.data;
-   double* nabla_Tzd = (double*) nabla_Tz.data;
+   float* nabla_Txd = (float*) nabla_Tx.data;
+   float* nabla_Tyd = (float*) nabla_Ty.data;
+   float* nabla_Tzd = (float*) nabla_Tz.data;
    double* Dfd = (double*) Df.data;
 
    //#pragma omp parallel for
@@ -685,6 +685,15 @@ void FrameWarpAligner::warpImage(const cv::Mat& img, cv::Mat& wimg, const std::v
          {
             cv::Point3d loc = warpPoint(D, x, y, z, realign_params.spatial_binning);
             loc += cv::Point3d(x,y,z);
+
+            // Clamp values slightly outside range
+            if ((loc.x < 0) && (loc.x > -1)) loc.x = 0;
+            if ((loc.y < 0) && (loc.x > -1)) loc.y = 0;
+            if ((loc.z < 0) && (loc.x > -1)) loc.z = 0;
+
+            if ((loc.x > (dims[X] - 1)) && (loc.x < dims[X])) loc.x = dims[X]-1;
+            if ((loc.y > (dims[Y] - 1)) && (loc.x < dims[Y])) loc.y = dims[Y]-1;
+            if ((loc.z > (dims[Z] - 1)) && (loc.x < dims[Z])) loc.z = dims[Z]-1;
 
             cv::Point3i loc0(floor(loc.x), floor(loc.y), floor(loc.z));
             cv::Point3d locf(loc.x - loc0.x, loc.y - loc0.y, loc.z - loc0.z);
