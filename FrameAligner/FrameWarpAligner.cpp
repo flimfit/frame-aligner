@@ -205,6 +205,24 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
 {
    cv::Mat raw_frame, frame;
    raw_frame_.copyTo(raw_frame);
+
+   auto Rmodel = OptimisationModel(this, smoothed_reference, reference);
+   
+
+   std::vector<cv::Point3d> Dfake(nD, cv::Point3d(0,0,0));   
+   for(int i=0; i<nD; i++)
+   {
+      Dfake[i].x = 20.0 * i / (nD-1);
+      Dfake[i].y = 20.0 * i / (nD-1);
+      Dfake[i].z = 5.0 * i / (nD-1);
+   }
+   
+   column_vector xfake;
+   D2col(Dfake, xfake, n_dim);
+   cv::Mat w = Rmodel.getWarpedRawImage(xfake);
+   w.copyTo(raw_frame);
+
+   
    raw_frame.convertTo(raw_frame, CV_32F);
 
    raw_frame = reshapeForProcessing(raw_frame);
@@ -272,7 +290,7 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
       << l << std::endl;
    */   
 
-   
+   /*
    try
    {
 	   
@@ -286,10 +304,21 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
    {
       std::cout << e.info;
    }
-   
+   */
+
+
    col2D(x, D, n_dim);
    Dstore[frame_t] = D;
    Dlast = *(D.end() - 2);
+
+   for(int i=0; i<nD; i++)
+   {
+      D[i].x = 20.0 * i / (nD-1);
+      D[i].y = 20.0 * i / (nD-1);
+      D[i].z = 5.0 * i / (nD-1);
+   }
+
+   D2col(D, x, n_dim);
 
    std::cout << "*";
 
