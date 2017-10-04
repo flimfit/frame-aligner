@@ -102,12 +102,16 @@ void FrameWarpAligner::smoothStack(const cv::Mat& in, cv::Mat& out)
    if (realign_params.smoothing > 0.0)
    {
       out = cv::Mat(dims, CV_32F);
-      for(int i=0; i<dims[Z]; i++)
-         cv::GaussianBlur(extractSlice(in,i), extractSlice(out,i), cv::Size(0, 0), realign_params.smoothing, 1);
+      cv::Mat buf;
+      for (int i = 0; i < dims[Z]; i++)
+      {
+         extractSlice(in, i).convertTo(buf, CV_32F);
+         cv::GaussianBlur(buf, extractSlice(out, i), cv::Size(0, 0), realign_params.smoothing, 1);
+      }
    }
    else
    {
-      out = in;
+      in.convertTo(out, CV_32F);
    }
    
 }
@@ -143,7 +147,8 @@ void FrameWarpAligner::setReference(int frame_t, const cv::Mat& reference_)
    phase_correlator = std::unique_ptr<VolumePhaseCorrelator>(new VolumePhaseCorrelator(dims[Z], dims[Y] / 4, dims[X] / 4));   
 
    reference_.copyTo(reference);
-   
+   reference.convertTo(reference, CV_32F);
+
    reference = reshapeForProcessing(reference);   
    smoothStack(reference, smoothed_reference);
 
@@ -200,41 +205,47 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
 {
    cv::Mat raw_frame, frame;
    raw_frame_.copyTo(raw_frame);
-   
+   raw_frame.convertTo(raw_frame, CV_32F);
+
    raw_frame = reshapeForProcessing(raw_frame);
    smoothStack(raw_frame, frame);
 
    auto model = OptimisationModel(this, frame, raw_frame);
 
-   std::vector<column_vector> starting_point(3, column_vector(nD * n_dim));
+   std::vector<column_vector> starting_point(2, column_vector(nD * n_dim));
 
    // zero starting point
    std::fill(starting_point[0].begin(), starting_point[0].end(), 0);
 
-   // last starting point
    std::vector<cv::Point3d> D(nD, cv::Point3d(0,0,0));
-   if (frame_t < n_frames)
-      interpolatePoint3d(Dstore[frame_t], D);
-   D2col(D, starting_point[1], n_dim);
+   // last starting point
+   //if (frame_t < n_frames)
+   //   interpolatePoint3d(Dstore[frame_t], D);
+   //D2col(D, starting_point[1], n_dim);
 
    // rigid starting point
    cv::Mat ff = downsample(raw_frame, phase_downsampling);
    cv::Point3d rigid_shift = phase_correlator->computeShift((float*) ff.data);
-   std::vector<cv::Point3d> D_rigid(nD, rigid_shift  * phase_downsampling);
-   D2col(D_rigid, starting_point[2], n_dim);
+   rigid_shift.x *= phase_downsampling;
+   rigid_shift.y *= phase_downsampling;
+   std::vector<cv::Point3d> D_rigid(nD, rigid_shift);
+   D2col(D_rigid, starting_point[1], n_dim);
    
-
+   std::vector<double> point_fcn(starting_point.size());
    double best = std::numeric_limits<double>::max();
    int best_start = 0;
    for (int i = 0; i < starting_point.size(); i++)
    {
       double new_value = model(starting_point[i]);
+      point_fcn[i] = new_value;
       if (new_value < best)
       {
          best_start = i;
          best = new_value;
       }
    }
+
+   best_start = 0;
 
    column_vector x = starting_point[best_start];
 
@@ -447,7 +458,7 @@ void FrameWarpAligner::precomputeInterp()
    D_range.resize(nD);
 
    Di = cv::Mat(dims, CV_16U);
-   Df = cv::Mat(dims, CV_64F);
+   Df = cv::Mat(dims, CV_32F);
    
    double Di_xy;
    int i;
@@ -468,7 +479,7 @@ void FrameWarpAligner::precomputeInterp()
                x_true = dims[X] - x - 1;
 
             Di.at<uint16_t>(z, y, x_true) = i;
-            Df.at<double>(z, y, x_true) = f;
+            Df.at<float>(z, y, x_true) = f;
 
             if (i > last_i)
             {
@@ -492,15 +503,100 @@ void FrameWarpAligner::precomputeInterp()
 
    }
 
-   int max_VI_dW_dp = dims[X] * dims[Y] * dims[Z]; //max_interval * 2;
+   int max_VI_dW_dp = dims[X] * dims[Y] * dims[Z];
+   max_VI_dW_dp = max_interval * 2 + 1;
 
    VI_dW_dp_x.clear();
    VI_dW_dp_y.clear();
    VI_dW_dp_z.clear();
 
-   VI_dW_dp_x.resize(nD, std::vector<double>(max_VI_dW_dp, 0.0));
-   VI_dW_dp_y.resize(nD, std::vector<double>(max_VI_dW_dp, 0.0));
-   VI_dW_dp_z.resize(nD, std::vector<double>(max_VI_dW_dp, 0.0));
+   for (int i = 0; i < nD; i++)
+   {
+      int i0 = D_range[std::max(0, i - 1)].begin;
+      VI_dW_dp_x.push_back(OffsetVector<float>(max_VI_dW_dp, i0));
+      VI_dW_dp_y.push_back(OffsetVector<float>(max_VI_dW_dp, i0));
+      VI_dW_dp_z.push_back(OffsetVector<float>(max_VI_dW_dp, i0));
+   }
+}
+
+
+void applyXFilter(cv::Mat m, cv::Mat& out, std::array<float, 3> filter, std::array<float, 2> edge_filter1, std::array<float, 2> edge_filter2)
+{
+   for (int z = 0; z < m.size[Z]; z++)
+      for (int y = 0; y < m.size[Y]; y++)
+         for (int x = 1; x < (m.size[X] - 1); x++)
+            out.at<float>(z, y, x) = filter[0] * m.at<float>(z, y, x - 1) + filter[1] * m.at<float>(z, y, x) + filter[2] * m.at<float>(z, y, x + 1);
+
+   for (int z = 0; z < m.size[Z]; z++)
+      for (int y = 0; y < m.size[Y]; y++)
+      {
+         out.at<float>(z, y, 0) = edge_filter1[0] * m.at<float>(z, y, 0) + edge_filter1[1] * m.at<float>(z, y, 1);
+         out.at<float>(z, y, m.size[X] - 1) = edge_filter2[0] * m.at<float>(z, y, m.size[X] - 1) + edge_filter2[1] * m.at<float>(z, y, m.size[X] - 2);
+      }
+}
+
+void applyYFilter(cv::Mat m, cv::Mat& out, std::array<float, 3> filter, std::array<float, 2> edge_filter1, std::array<float, 2> edge_filter2)
+{
+   for (int z = 0; z < m.size[Z]; z++)
+      for (int y = 1; y < (m.size[Y] - 1); y++)
+         for (int x = 0; x < m.size[X]; x++)
+            out.at<float>(z, y, x) = filter[0] * m.at<float>(z, y - 1, x) + filter[1] * m.at<float>(z, y, x) + filter[2] * m.at<float>(z, y + 1, x);
+
+   for (int z = 0; z < m.size[Z]; z++)
+      for (int x = 0; x < m.size[X]; x++)
+      {
+         out.at<float>(z, 0, x) = edge_filter1[0] * m.at<float>(z, 0, x) + edge_filter1[1] * m.at<float>(z, 0, x);
+            out.at<float>(z, m.size[Y] - 1, 0) = edge_filter2[0] * m.at<float>(z, m.size[Y] - 1, 0) + edge_filter2[1] * m.at<float>(z, m.size[Y] - 2, 0);
+      }
+}
+
+void applyZFilter(cv::Mat m, cv::Mat& out, std::array<float, 3> filter, std::array<float, 2> edge_filter1, std::array<float, 2> edge_filter2)
+{
+   if (m.size[Z] == 1)
+   {
+      m.copyTo(out);
+      return;
+   }
+
+   for (int z = 1; z < (m.size[Z] - 1); z++)
+      for (int y = 0; y < m.size[Y]; y++)
+         for (int x = 0; x < m.size[X]; x++)
+            out.at<float>(z, y, x) = filter[0] * m.at<float>(z - 1, y, x) + filter[1] * m.at<float>(z, y, x) + filter[2] * m.at<float>(z + 1, y, x);
+
+
+   for (int y = 0; y < m.size[Y]; y++)
+      for (int x = 0; x < m.size[X]; x++)
+      {
+         out.at<float>(0, y, x) = edge_filter1[0] * m.at<float>(0, y, x) + edge_filter1[1] * m.at<float>(1, y, x);
+         out.at<float>(m.size[Z] - 1, y, 0) = edge_filter2[0] * m.at<float>(m.size[Z] - 1, y, 0) + edge_filter2[1] * m.at<float>(m.size[Z] - 2, y, 0);
+      }
+}
+
+void sobel3d(cv::Mat m, cv::Mat& gx, cv::Mat& gy, cv::Mat& gz)
+{
+   cv::Mat a(m.dims, m.size, m.type()), b(m.dims, m.size, m.type()), c(m.dims, m.size, m.type());
+
+   std::array<float, 3> a1 = { 1.0/4.0, 2.0/4.0, 1.0/4.0 };
+   std::array<float, 2> a2 = { 2.0/3.0, 2.0/3.0 };
+   std::array<float, 2> a3 = { 2.0 / 3.0, 2.0 / 3.0 };
+
+   std::array<float, 3> s1 = { -0.5, 0, 0.5 };
+   std::array<float, 2> s2 = { -0.5, 0.5 };
+   std::array<float, 2> s3 = { 0.5, -0.5 };
+
+
+   applyXFilter(m, a, a1, a2, a3);
+
+   applyYFilter(a, b, a1, a2, a3);
+   applyZFilter(a, c, a1, a2, a3);
+
+   applyZFilter(b, gz, s1, s2, s3);
+   applyYFilter(c, gy, s1, s2, s3);
+
+   applyYFilter(m, a, a1, a2, a3);
+   applyZFilter(a, b, a1, a2, a3);
+
+   applyXFilter(b, gx, s1, s2, s3);
 }
 
 
@@ -508,38 +604,79 @@ void FrameWarpAligner::computeSteepestDecentImages(const cv::Mat& frame)
 {
    // Evaluate gradient of reference
 
-   cv::Mat nabla_Tx(dims, CV_64F);
-   cv::Mat nabla_Ty(dims, CV_64F);
-   cv::Mat nabla_Tz(dims, CV_64F);
+   cv::Mat nabla_Tx(dims, CV_32F);
+   cv::Mat nabla_Ty(dims, CV_32F);
+   cv::Mat nabla_Tz(dims, CV_32F);
 
-   for(int i=0; i<dims[Z]; i++)
+   cv::Mat nabla_Tx1(dims, CV_32F);
+   cv::Mat nabla_Ty1(dims, CV_32F);
+   cv::Mat nabla_Tz1(dims, CV_32F);
+
+
+   sobel3d(frame, nabla_Tx, nabla_Ty, nabla_Tz);
+
+   /*
+   auto padded_dims = dims;
+   padded_dims[Z]++;
+   cv::Mat d0(padded_dims, frame.type(), cv::Scalar(0));
+   std::copy_n(frame.data, dims[Z] * dims[Y] * dims[X] * frame.elemSize1(), d0.data);
+
+   cv::Mat dx(dims, frame.type(), d0.data + frame.elemSize1());
+   cv::Mat dy(dims, frame.type(), d0.data + dims[X] * frame.elemSize1());
+   cv::Mat dz(dims, frame.type(), d0.data + dims[Y] * dims[X] * frame.elemSize1());
+
+   nabla_Tx1 = (dx - frame);
+   nabla_Ty1 = (dy - frame);
+   nabla_Tz1 = (dz - frame);
+
+   // Replace invalid entries at end of dimensions
+   for (int z = 0; z < dims[Z]; z++)
+   {
+      for (int y = 0; y < dims[Y]; y++)
+         nabla_Tx1.at<float>(z, y, dims[X] - 1) = nabla_Tx1.at<float>(z, y, dims[X] - 2);
+
+      for (int x = 0; x < dims[X]; x++)
+         nabla_Ty1.at<float>(z, dims[Y] - 1, x) = nabla_Ty1.at<float>(z, dims[Y] - 2, x);
+   }
+
+   if (dims[Z] > 1)
+      extractSlice(nabla_Tz1, dims[Z] - 2).copyTo(extractSlice(nabla_Tz1, dims[Z] - 1));
+   */
+
+   //================================================
+   /*
+   for (int i = 0; i < dims[Z]; i++)
    {
       cv::Mat frame_i = extractSlice(frame, i);
 
-      cv::Mat nabla_Tx_i = extractSlice(nabla_Tx,i);
-      cv::Mat nabla_Ty_i = extractSlice(nabla_Ty,i);
-      cv::Mat nabla_Tz_i = extractSlice(nabla_Tz,i);
+      cv::Mat nabla_Tx_i = extractSlice(nabla_Tx, i);
+      cv::Mat nabla_Ty_i = extractSlice(nabla_Ty, i);
+      cv::Mat nabla_Tz_i = extractSlice(nabla_Tz, i);
 
-      cv::Scharr(frame_i, nabla_Tx_i, CV_64F, 1, 0, 1.0 / 32.0);
-      cv::Scharr(frame_i, nabla_Ty_i, CV_64F, 0, 1, 1.0 / 32.0);
+      cv::Scharr(frame_i, nabla_Tx_i, CV_32F, 1, 0, 1.0 / 32.0);
+      cv::Scharr(frame_i, nabla_Ty_i, CV_32F, 0, 1, 1.0 / 32.0);
 
-      if (i<(dims[Z]-1))
+      if (i < (dims[Z] - 1))
       {
-         cv::Mat frame_i1 = extractSlice(frame, i+1);
+         cv::Mat frame_i1 = extractSlice(frame, i + 1);
          cv::Mat diff = frame_i - frame_i1;
-         diff.convertTo(nabla_Tz_i, CV_64F);
+         diff.convertTo(nabla_Tz_i, CV_32F);
       }
-      else
+      else if (dims[Z] > 1)
       {
-         cv::Mat nabla_Tz_last = extractSlice(nabla_Tz, i-1);
+         cv::Mat nabla_Tz_last = extractSlice(nabla_Tz, i - 1);
          nabla_Tz_last.copyTo(nabla_Tz_i);
       }
-   }   
+   }
+   */
 
-   double* nabla_Txd = (double*) nabla_Tx.data;
-   double* nabla_Tyd = (double*) nabla_Ty.data;
-   double* nabla_Tzd = (double*) nabla_Tz.data;
-   double* Dfd = (double*) Df.data;
+   //====================
+
+
+   float* nabla_Txd = (float*)nabla_Tx.data;
+   float* nabla_Tyd = (float*)nabla_Ty.data;
+   float* nabla_Tzd = (float*)nabla_Tz.data;
+   float* Dfd = (float*)Df.data;
 
    //#pragma omp parallel for
    for (int i = 1; i < nD; i++)
@@ -576,7 +713,13 @@ void FrameWarpAligner::computeSteepestDecentImages(const cv::Mat& frame)
 
 double FrameWarpAligner::computeHessianEntry(int pi, int pj)
 {
-   auto getV = [this](int i) -> const std::vector<double>& { 
+   int i = pi % nD;
+   int j = pj % nD;
+
+   if (j > i) return computeHessianEntry(pj, pi);
+   if ((i - j) > 1) return 0;
+
+   auto getV = [this](int i) -> const OffsetVector<float>& {
       if (i < nD)
          return VI_dW_dp_x[i];
       else if (i < 2*nD)
@@ -585,21 +728,15 @@ double FrameWarpAligner::computeHessianEntry(int pi, int pj)
          return VI_dW_dp_z[i - 2*nD];
       };
 
-   int i = pi % nD;
-   int j = pj % nD;
-
-   if (j > i) return computeHessianEntry(pj, pi);
-   if ((i - j) > 1) return 0;
-
    auto v1 = getV(pi);
    auto v2 = getV(pj);
   
-   int p0 = (i==0) ? D_range[i].begin : D_range[i-1].begin;
-   int p1 = (i==(nD-1)) ? D_range[i-1].end : D_range[i].end;
+   int p0 = std::max(v1.first(), v2.first());
+   int p1 = std::min(v1.last(), v2.last());
 
    double h = 0;
    for (int p = p0; p < p1; p++)
-      h += v1[p] * v2[p];
+      h += v1.at(p) * v2.at(p);
       
    return h;
 }
@@ -607,12 +744,18 @@ double FrameWarpAligner::computeHessianEntry(int pi, int pj)
 void FrameWarpAligner::computeHessian()
 {   
    H.set_size(n_dim * nD, n_dim * nD);
-   std::fill(H.begin(), H.end(), 0);
+   //std::fill(H.begin(), H.end(), 0);
 
    // Diagonal elements
-   for (int pi = 0; pi < nD * n_dim; pi++)
-      H(pi, pi) += computeHessianEntry(pi, pi);
+   for (int i = 0; i < nD * n_dim; i++)
+      for (int j = 0; j < nD * n_dim; j++)
+      {
+         double h = computeHessianEntry(i, j);
+         H(i, j) = h;
+         H(j, i) = h;
+      }
 
+   /*
    // Off diagonal elements
    for (int pi = 1; pi < nD * n_dim; pi++)
    {
@@ -634,7 +777,7 @@ void FrameWarpAligner::computeHessian()
          }
       }
    }
-   
+   */
 
 }
 
@@ -685,6 +828,15 @@ void FrameWarpAligner::warpImage(const cv::Mat& img, cv::Mat& wimg, const std::v
          {
             cv::Point3d loc = warpPoint(D, x, y, z, realign_params.spatial_binning);
             loc += cv::Point3d(x,y,z);
+
+            // Clamp values slightly outside range
+            if ((loc.x < 0) && (loc.x > -1)) loc.x = 0;
+            if ((loc.y < 0) && (loc.y > -1)) loc.y = 0;
+            if ((loc.z < 0) && (loc.z > -1)) loc.z = 0;
+
+            if ((loc.x > (dims[X] - 1)) && (loc.x < dims[X])) loc.x = dims[X]-1;
+            if ((loc.y > (dims[Y] - 1)) && (loc.y < dims[Y])) loc.y = dims[Y]-1;
+            if ((loc.z > (dims[Z] - 1)) && (loc.z < dims[Z])) loc.z = dims[Z]-1;
 
             cv::Point3i loc0(floor(loc.x), floor(loc.y), floor(loc.z));
             cv::Point3d locf(loc.x - loc0.x, loc.y - loc0.y, loc.z - loc0.z);
@@ -766,7 +918,7 @@ cv::Point3d FrameWarpAligner::warpPoint(const std::vector<cv::Point3d>& D, int x
        || (z  < 0) || (z  >= dims[Z]))
       return cv::Point3d(0,0,0);
 
-   double* Df_d = reinterpret_cast<double*>(Df.data);
+   float* Df_d = reinterpret_cast<float*>(Df.data);
    uint16_t* Di_d = reinterpret_cast<uint16_t*>(Di.data);
    int loc = (z * dims[Y] + ys) * dims[X] + xs;
 

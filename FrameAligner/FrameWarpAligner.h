@@ -24,6 +24,35 @@ public:
    int interval() { return end - begin; }
 };
 
+template<class T>
+class OffsetVector
+{
+public: 
+
+   OffsetVector<T>(size_t n_ = 0, size_t i0_ = 0)
+   {
+      i0 = i0_;
+      n = n_;
+      v.resize(n);
+   }
+
+   T at(int i) 
+   {
+      if ((i < i0) || (i >= (i0 + n))) 
+         return 0;
+      return v[i - i0];
+   }
+
+   T& operator[](int i) { return v[i - i0]; }
+
+   size_t first() { return i0; }
+   size_t last() { return i0 + n - 1; }
+
+private:
+   std::vector<T> v;
+   size_t i0;
+   size_t n;
+};
 
 class FrameWarpAligner : public AbstractFrameAligner
 {
@@ -122,7 +151,7 @@ protected:
    std::vector<int> dims;
    bool output2d = false;
 
-   std::vector<std::vector<double>> VI_dW_dp_x, VI_dW_dp_y, VI_dW_dp_z;
+   std::vector<OffsetVector<float>> VI_dW_dp_x, VI_dW_dp_y, VI_dW_dp_z;
 
    std::unique_ptr<VolumePhaseCorrelator> phase_correlator;
 
