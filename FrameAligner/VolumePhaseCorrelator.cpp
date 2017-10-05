@@ -71,7 +71,6 @@ cv::Point3d VolumePhaseCorrelator::computeShift(const float* volume)
    // Compute cross-power spectrum
    for(int i=0; i<n_complex; i++)
    {
-      std::complex<double> diff = reference[i] - conj(p->out[i]);
       p->out[i] *= reference[i];
       std::complex<double> norm = std::abs(p->out[i])+eps;
       p->out[i] /= (norm);
