@@ -1,5 +1,6 @@
 #include "RigidFrameAligner.h"
 #include "FrameWarpAligner.h"
+#include "Cv3dUtils.h"
 
 std::string realignmentTypeString(RealignmentType t)
 {

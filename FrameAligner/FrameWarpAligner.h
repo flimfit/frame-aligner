@@ -6,11 +6,7 @@
 #include <array>
 #include <opencv2/opencv.hpp>
 #include <dlib/optimization.h>
-
-#define X 2
-#define Y 1
-#define Z 0
-
+#include "Cv3dUtils.h"
 
 using namespace dlib;
 typedef matrix<double, 0, 1> column_vector;
@@ -156,33 +152,4 @@ protected:
    std::unique_ptr<VolumePhaseCorrelator> phase_correlator;
 
    friend class OptimisationModel;
-};
-
-
-class OptimisationModel
-{
-   /*!
-   This object is a "function model" which can be used with the
-   find_min_trust_region() routine.
-   !*/
-
-public:
-   typedef ::column_vector column_vector;
-   typedef matrix<double> general_matrix;
-
-   OptimisationModel(FrameWarpAligner* aligner, const cv::Mat& frame, const cv::Mat& raw_frame);
-
-   double operator() (const column_vector& x) const;
-   void get_derivative_and_hessian(const column_vector& x, column_vector& der, general_matrix& hess) const;
-
-   cv::Mat getMask(const column_vector& x);
-   cv::Mat getWarpedRawImage(const column_vector& x);
-   cv::Mat getWarpedImage(const column_vector& x);
-
-protected:
-
-   FrameWarpAligner* aligner;
-   cv::Mat raw_frame;
-   cv::Mat frame;
-   RealignmentParameters realign_params;
 };

@@ -1,81 +1,12 @@
 #include "FrameWarpAligner.h"
-#include "LinearInterpolation.h"
 #include "Cv3dUtils.h"
-
+#include "Sobel3d.h"
+#include "OptimisationModel.h"
 #include <functional>
 #include <fstream>
+#include <algorithm>
 
-double correlation(cv::Mat &image_1, cv::Mat &image_2, cv::Mat &mask)
-{
 
-   // convert data-type to "float"
-   cv::Mat im_float_1;
-   image_1.convertTo(im_float_1, CV_32F);
-   cv::Mat im_float_2;
-   image_2.convertTo(im_float_2, CV_32F);
-
-   // Compute mean and standard deviation of both images
-   cv::Scalar im1_Mean, im1_Std, im2_Mean, im2_Std;
-   meanStdDev(im_float_1, im1_Mean, im1_Std, mask);
-   meanStdDev(im_float_2, im2_Mean, im2_Std, mask);
-
-   im_float_1 -= im1_Mean[0];
-   im_float_2 -= im2_Mean[0];
-
-   cv::multiply(im_float_1, im_float_2, im_float_1);
-
-   // Compute covariance and correlation coefficient
-   double covar = cv::mean(im_float_1, mask)[0];
-   double correl = covar / (im1_Std[0] * im2_Std[0]);
-
-   return correl;
-}
-
-void interpolatePoint3d(const std::vector<cv::Point3d>& Ds, std::vector<cv::Point3d>& D)
-{
-   if (Ds.empty())
-      return;
-
-   if (D.size() == Ds.size())
-   {
-      D = Ds;
-      return;
-   }
-
-   int nD = D.size();
-   int nDs = Ds.size();
-   auto ud = std::vector<double>(nDs);
-   auto vd_x = std::vector<double>(nDs);
-   auto vd_y = std::vector<double>(nDs);
-   auto vd_z = std::vector<double>(nDs);
-
-   auto ui = std::vector<double>(nD);
-   auto vi_x = std::vector<double>(nDs);
-   auto vi_y = std::vector<double>(nDs);
-   auto vi_z = std::vector<double>(nDs);
-
-   for (int i = 0; i < nDs; i++)
-   {
-      ud[i] = i / (nDs - 1.0);
-      vd_x[i] = Ds[i].x;
-      vd_y[i] = Ds[i].y;
-      vd_z[i] = Ds[i].z;
-   }
-
-   for (int i = 0; i < nD; i++)
-      ui[i] = i / (nD - 1.0);
-
-   pwl_interp_1d(ud, vd_x, ui, vi_x);
-   pwl_interp_1d(ud, vd_y, ui, vi_y);
-   pwl_interp_1d(ud, vd_z, ui, vi_z);
-
-   for (int i = 0; i < nD; i++)
-   {
-      D[i].x = vi_x[i];
-      D[i].y = vi_y[i];
-      D[i].z = vi_z[i];
-   }
-}
 
 FrameWarpAligner::FrameWarpAligner(RealignmentParameters params)
 {
@@ -173,56 +104,12 @@ void FrameWarpAligner::reprocess()
 //      addFrame(iter.first, iter.second.frame);
 }
 
-void D2col(const std::vector<cv::Point3d> &D, column_vector& col, int n_dim)
-{
-   int nD = D.size();
-   col.set_size(nD * n_dim);
-
-   for (int i = 0; i < nD; i++)
-   {
-      col(i) = D[i].x;
-      col(i + nD) = D[i].y;
-      if (n_dim == 3)
-            col(i + 2*nD) = D[i].z;
-   }
-}
-
-void col2D(const column_vector& col, std::vector<cv::Point3d> &D, int n_dim)
-{
-   int nD = col.size() / n_dim;
-   D.resize(nD);
-
-   for (int i = 0; i < nD; i++)
-   {
-      D[i].x = col(i);
-      D[i].y = col(i + nD);
-      if (n_dim == 3) D[i].z = col(i + nD);
-   }
-}
-
 
 RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_frame_)
 {
    cv::Mat raw_frame, frame;
    raw_frame_.copyTo(raw_frame);
 
-   auto Rmodel = OptimisationModel(this, smoothed_reference, reference);
-   
-
-   std::vector<cv::Point3d> Dfake(nD, cv::Point3d(0,0,0));   
-   for(int i=0; i<nD; i++)
-   {
-      Dfake[i].x = 20.0 * i / (nD-1);
-      Dfake[i].y = 20.0 * i / (nD-1);
-      Dfake[i].z = 5.0 * i / (nD-1);
-   }
-   
-   column_vector xfake;
-   D2col(Dfake, xfake, n_dim);
-   cv::Mat w = Rmodel.getWarpedRawImage(xfake);
-   w.copyTo(raw_frame);
-
-   
    raw_frame.convertTo(raw_frame, CV_32F);
 
    raw_frame = reshapeForProcessing(raw_frame);
@@ -249,21 +136,10 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
    std::vector<cv::Point3d> D_rigid(nD, rigid_shift);
    D2col(D_rigid, starting_point[1], n_dim);
    
-   std::vector<double> point_fcn(starting_point.size());
-   double best = std::numeric_limits<double>::max();
-   int best_start = 0;
-   for (int i = 0; i < starting_point.size(); i++)
-   {
-      double new_value = model(starting_point[i]);
-      point_fcn[i] = new_value;
-      if (new_value < best)
-      {
-         best_start = i;
-         best = new_value;
-      }
-   }
-
-   best_start = 0;
+   // Find best starting point
+   std::vector<double> starting_point_eval(starting_point.size());
+   std::transform(starting_point.begin(), starting_point.end(), starting_point_eval.begin(), [&](auto p)->auto { return model(p); });
+   size_t best_start = std::min_element(starting_point_eval.begin(), starting_point_eval.end()) - starting_point_eval.begin();
 
    column_vector x = starting_point[best_start];
 
@@ -290,7 +166,7 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
       << l << std::endl;
    */   
 
-   /*
+   
    try
    {
 	   
@@ -304,21 +180,11 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
    {
       std::cout << e.info;
    }
-   */
-
+   
 
    col2D(x, D, n_dim);
    Dstore[frame_t] = D;
    Dlast = *(D.end() - 2);
-
-   for(int i=0; i<nD; i++)
-   {
-      D[i].x = 20.0 * i / (nD-1);
-      D[i].y = 20.0 * i / (nD-1);
-      D[i].z = 5.0 * i / (nD-1);
-   }
-
-   D2col(D, x, n_dim);
 
    std::cout << "*";
 
@@ -349,73 +215,6 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
    return r;
 
 
-}
-
-OptimisationModel::OptimisationModel(FrameWarpAligner* aligner, const cv::Mat& frame, const cv::Mat& raw_frame) :
-   aligner(aligner),
-   raw_frame(raw_frame),
-   frame(frame),
-   realign_params(aligner->realign_params)
-{
-}
-
-
-double OptimisationModel::operator() (const column_vector& x) const
-{
-   std::vector<cv::Point3d> D;
-   cv::Mat warped_image, error_image;
-   
-   // Get displacement matrix from warp parameters
-   col2D(x, D, aligner->n_dim);
-
-   aligner->warpImage(frame, warped_image, D, -1);
-   double rms_error = aligner->computeErrorImage(warped_image, error_image);
-
-   std::cout << "E: " << rms_error << "\n";
-   return rms_error;
-}
-
-void OptimisationModel::get_derivative_and_hessian(const column_vector& x, column_vector& der, general_matrix& hess) const
-{
-   std::vector<cv::Point3d> D;
-   cv::Mat warped_image, error_image;
-
-   // Get displacement matrix from warp parameters
-   col2D(x, D, aligner->n_dim);
-
-   aligner->warpImage(frame, warped_image, D, -1);
-   double rms_error = aligner->computeErrorImage(warped_image, error_image);
-
-   aligner->computeJacobian(error_image, der);
-   hess = aligner->H;
-}
-
-cv::Mat OptimisationModel::getMask(const column_vector& x)
-{
-   std::vector<cv::Point3d> D;
-   col2D(x, D, aligner->n_dim);
-   
-   cv::Mat mask;
-   aligner->warpCoverage(mask, D);
-   return mask;
-}
-
-cv::Mat OptimisationModel::getWarpedRawImage(const column_vector& x)
-{
-   std::vector<cv::Point3d> D;
-   col2D(x, D, aligner->n_dim);
-   cv::Mat warped_image;
-   aligner->warpImage(raw_frame, warped_image, D);
-   return warped_image;
-}
-
-cv::Mat OptimisationModel::getWarpedImage(const column_vector& x)
-{
-	std::vector<cv::Point3d> D;
-	col2D(x, D, aligner->n_dim);
-	cv::Mat warped_image;
-	aligner->warpImage(frame, warped_image, D);
-	return warped_image;
 }
 
 double FrameWarpAligner::computeErrorImage(cv::Mat& wimg, cv::Mat& error_img)
@@ -549,86 +348,6 @@ void FrameWarpAligner::precomputeInterp()
 }
 
 
-void applyXFilter(cv::Mat m, cv::Mat& out, std::array<float, 3> filter, std::array<float, 2> edge_filter1, std::array<float, 2> edge_filter2)
-{
-   for (int z = 0; z < m.size[Z]; z++)
-      for (int y = 0; y < m.size[Y]; y++)
-         for (int x = 1; x < (m.size[X] - 1); x++)
-            out.at<float>(z, y, x) = filter[0] * m.at<float>(z, y, x - 1) + filter[1] * m.at<float>(z, y, x) + filter[2] * m.at<float>(z, y, x + 1);
-
-   for (int z = 0; z < m.size[Z]; z++)
-      for (int y = 0; y < m.size[Y]; y++)
-      {
-         out.at<float>(z, y, 0) = edge_filter1[0] * m.at<float>(z, y, 0) + edge_filter1[1] * m.at<float>(z, y, 1);
-         out.at<float>(z, y, m.size[X] - 1) = edge_filter2[0] * m.at<float>(z, y, m.size[X] - 1) + edge_filter2[1] * m.at<float>(z, y, m.size[X] - 2);
-      }
-}
-
-void applyYFilter(cv::Mat m, cv::Mat& out, std::array<float, 3> filter, std::array<float, 2> edge_filter1, std::array<float, 2> edge_filter2)
-{
-   for (int z = 0; z < m.size[Z]; z++)
-      for (int y = 1; y < (m.size[Y] - 1); y++)
-         for (int x = 0; x < m.size[X]; x++)
-            out.at<float>(z, y, x) = filter[0] * m.at<float>(z, y - 1, x) + filter[1] * m.at<float>(z, y, x) + filter[2] * m.at<float>(z, y + 1, x);
-
-   for (int z = 0; z < m.size[Z]; z++)
-      for (int x = 0; x < m.size[X]; x++)
-      {
-         out.at<float>(z, 0, x) = edge_filter1[0] * m.at<float>(z, 0, x) + edge_filter1[1] * m.at<float>(z, 0, x);
-            out.at<float>(z, m.size[Y] - 1, 0) = edge_filter2[0] * m.at<float>(z, m.size[Y] - 1, 0) + edge_filter2[1] * m.at<float>(z, m.size[Y] - 2, 0);
-      }
-}
-
-void applyZFilter(cv::Mat m, cv::Mat& out, std::array<float, 3> filter, std::array<float, 2> edge_filter1, std::array<float, 2> edge_filter2)
-{
-   if (m.size[Z] == 1)
-   {
-      m.copyTo(out);
-      return;
-   }
-
-   for (int z = 1; z < (m.size[Z] - 1); z++)
-      for (int y = 0; y < m.size[Y]; y++)
-         for (int x = 0; x < m.size[X]; x++)
-            out.at<float>(z, y, x) = filter[0] * m.at<float>(z - 1, y, x) + filter[1] * m.at<float>(z, y, x) + filter[2] * m.at<float>(z + 1, y, x);
-
-
-   for (int y = 0; y < m.size[Y]; y++)
-      for (int x = 0; x < m.size[X]; x++)
-      {
-         out.at<float>(0, y, x) = edge_filter1[0] * m.at<float>(0, y, x) + edge_filter1[1] * m.at<float>(1, y, x);
-         out.at<float>(m.size[Z] - 1, y, 0) = edge_filter2[0] * m.at<float>(m.size[Z] - 1, y, 0) + edge_filter2[1] * m.at<float>(m.size[Z] - 2, y, 0);
-      }
-}
-
-void sobel3d(cv::Mat m, cv::Mat& gx, cv::Mat& gy, cv::Mat& gz)
-{
-   cv::Mat a(m.dims, m.size, m.type()), b(m.dims, m.size, m.type()), c(m.dims, m.size, m.type());
-
-   std::array<float, 3> a1 = { 1.0/4.0, 2.0/4.0, 1.0/4.0 };
-   std::array<float, 2> a2 = { 2.0/3.0, 2.0/3.0 };
-   std::array<float, 2> a3 = { 2.0 / 3.0, 2.0 / 3.0 };
-
-   std::array<float, 3> s1 = { -0.5, 0, 0.5 };
-   std::array<float, 2> s2 = { -0.5, 0.5 };
-   std::array<float, 2> s3 = { 0.5, -0.5 };
-
-
-   applyXFilter(m, a, a1, a2, a3);
-
-   applyYFilter(a, b, a1, a2, a3);
-   applyZFilter(a, c, a1, a2, a3);
-
-   applyZFilter(b, gz, s1, s2, s3);
-   applyYFilter(c, gy, s1, s2, s3);
-
-   applyYFilter(m, a, a1, a2, a3);
-   applyZFilter(a, b, a1, a2, a3);
-
-   applyXFilter(b, gx, s1, s2, s3);
-}
-
-
 void FrameWarpAligner::computeSteepestDecentImages(const cv::Mat& frame)
 {
    // Evaluate gradient of reference
@@ -641,66 +360,7 @@ void FrameWarpAligner::computeSteepestDecentImages(const cv::Mat& frame)
    cv::Mat nabla_Ty1(dims, CV_32F);
    cv::Mat nabla_Tz1(dims, CV_32F);
 
-
    sobel3d(frame, nabla_Tx, nabla_Ty, nabla_Tz);
-
-   /*
-   auto padded_dims = dims;
-   padded_dims[Z]++;
-   cv::Mat d0(padded_dims, frame.type(), cv::Scalar(0));
-   std::copy_n(frame.data, dims[Z] * dims[Y] * dims[X] * frame.elemSize1(), d0.data);
-
-   cv::Mat dx(dims, frame.type(), d0.data + frame.elemSize1());
-   cv::Mat dy(dims, frame.type(), d0.data + dims[X] * frame.elemSize1());
-   cv::Mat dz(dims, frame.type(), d0.data + dims[Y] * dims[X] * frame.elemSize1());
-
-   nabla_Tx1 = (dx - frame);
-   nabla_Ty1 = (dy - frame);
-   nabla_Tz1 = (dz - frame);
-
-   // Replace invalid entries at end of dimensions
-   for (int z = 0; z < dims[Z]; z++)
-   {
-      for (int y = 0; y < dims[Y]; y++)
-         nabla_Tx1.at<float>(z, y, dims[X] - 1) = nabla_Tx1.at<float>(z, y, dims[X] - 2);
-
-      for (int x = 0; x < dims[X]; x++)
-         nabla_Ty1.at<float>(z, dims[Y] - 1, x) = nabla_Ty1.at<float>(z, dims[Y] - 2, x);
-   }
-
-   if (dims[Z] > 1)
-      extractSlice(nabla_Tz1, dims[Z] - 2).copyTo(extractSlice(nabla_Tz1, dims[Z] - 1));
-   */
-
-   //================================================
-   /*
-   for (int i = 0; i < dims[Z]; i++)
-   {
-      cv::Mat frame_i = extractSlice(frame, i);
-
-      cv::Mat nabla_Tx_i = extractSlice(nabla_Tx, i);
-      cv::Mat nabla_Ty_i = extractSlice(nabla_Ty, i);
-      cv::Mat nabla_Tz_i = extractSlice(nabla_Tz, i);
-
-      cv::Scharr(frame_i, nabla_Tx_i, CV_32F, 1, 0, 1.0 / 32.0);
-      cv::Scharr(frame_i, nabla_Ty_i, CV_32F, 0, 1, 1.0 / 32.0);
-
-      if (i < (dims[Z] - 1))
-      {
-         cv::Mat frame_i1 = extractSlice(frame, i + 1);
-         cv::Mat diff = frame_i - frame_i1;
-         diff.convertTo(nabla_Tz_i, CV_32F);
-      }
-      else if (dims[Z] > 1)
-      {
-         cv::Mat nabla_Tz_last = extractSlice(nabla_Tz, i - 1);
-         nabla_Tz_last.copyTo(nabla_Tz_i);
-      }
-   }
-   */
-
-   //====================
-
 
    float* nabla_Txd = (float*)nabla_Tx.data;
    float* nabla_Tyd = (float*)nabla_Ty.data;
@@ -783,31 +443,6 @@ void FrameWarpAligner::computeHessian()
          H(i, j) = h;
          H(j, i) = h;
       }
-
-   /*
-   // Off diagonal elements
-   for (int pi = 1; pi < nD * n_dim; pi++)
-   {
-      double h = computeHessianEntry(pi, pi - 1);
-      H(pi, pi - 1) = h;
-      H(pi - 1, pi) = h;
-   }
-   
-   // Interactions between x,y,z
-   for (int i = 0; i < nD; i++)
-   {
-      for (int j = std::max(0, i - 1); j < std::min(nD, i + 1); j++)
-      {
-         for (int d=1; d < n_dim; d++)
-         {
-            double h = computeHessianEntry(i, j + d * nD);
-            H(i, j + d * nD) += h;
-            H(j + d * nD, i) += h;
-         }
-      }
-   }
-   */
-
 }
 
 

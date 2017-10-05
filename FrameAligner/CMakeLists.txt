@@ -22,6 +22,8 @@ set(SOURCE
    WriteMultipageTiff.cpp
    VolumePhaseCorrelator.cpp
    Cv3dUtils.cpp
+   Sobel3d.cpp
+   OptimisationModel.cpp
 )
 
 set(HEADERS
@@ -32,6 +34,8 @@ set(HEADERS
    WriteMultipageTiff.h
    VolumePhaseCorrelator.h
    Cv3dUtils.h
+   Sobel3d.h
+   OptimisationModel.h
 )
 
 set(FrameAligner_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR} ${OpenCV_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} PARENT_SCOPE)
