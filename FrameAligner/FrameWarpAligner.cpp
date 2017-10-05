@@ -402,20 +402,25 @@ void FrameWarpAligner::computeSteepestDecentImages(const cv::Mat& frame)
 
 double FrameWarpAligner::computeHessianEntry(int pi, int pj)
 {
-   int i = pi % nD;
-   int j = pj % nD;
+   int i = pi / n_dim;
+   int j = pj / n_dim;
 
    if (j > i) return computeHessianEntry(pj, pi);
    if ((i - j) > 1) return 0;
 
    auto getV = [this](int i) -> const OffsetVector<float>& {
-      if (i < nD)
-         return VI_dW_dp_x[i];
-      else if (i < 2*nD)
-         return VI_dW_dp_y[i - nD];
-      else
-         return VI_dW_dp_z[i - 2*nD];
-      };
+      int d = i % n_dim;
+      int idx = i / n_dim;
+      switch (d)
+      {
+      case 0:
+         return VI_dW_dp_x[idx];
+      case 1:
+         return VI_dW_dp_y[idx];
+      case 2:
+         return VI_dW_dp_z[idx];
+      }
+   };
 
    auto v1 = getV(pi);
    auto v2 = getV(pj);
@@ -433,7 +438,6 @@ double FrameWarpAligner::computeHessianEntry(int pi, int pj)
 void FrameWarpAligner::computeHessian()
 {   
    H.set_size(n_dim * nD, n_dim * nD);
-   //std::fill(H.begin(), H.end(), 0);
 
    // Diagonal elements
    for (int i = 0; i < nD * n_dim; i++)
@@ -460,10 +464,10 @@ void FrameWarpAligner::computeJacobian(const cv::Mat& error_img, column_vector& 
       int p1 = D_range[i - 1].end;
       for (int p = p0; p < p1; p++)
       {
-         jac(i) += VI_dW_dp_x[i][p] * err_ptr[p]; // x 
-         jac(i+nD) += VI_dW_dp_y[i][p] * err_ptr[p]; // y
+         jac(i*n_dim) += VI_dW_dp_x[i][p] * err_ptr[p]; // x 
+         jac(i*n_dim + 1) += VI_dW_dp_y[i][p] * err_ptr[p]; // y
          if (n_dim == 3)
-            jac(i+2*nD) += VI_dW_dp_z[i][p] * err_ptr[p]; // z        
+            jac(i*n_dim + 2) += VI_dW_dp_z[i][p] * err_ptr[p]; // z        
       }
    }
    for (int i = 0; i < (nD - 1); i++)
@@ -472,10 +476,10 @@ void FrameWarpAligner::computeJacobian(const cv::Mat& error_img, column_vector& 
       int p1 = D_range[i].end;
       for (int p = p0; p < p1; p++)
       {
-         jac(i) += VI_dW_dp_x[i][p] * err_ptr[p]; // x
-         jac(i+nD) += VI_dW_dp_y[i][p] * err_ptr[p]; // y
+         jac(i*n_dim) += VI_dW_dp_x[i][p] * err_ptr[p]; // x
+         jac(i*n_dim + 1) += VI_dW_dp_y[i][p] * err_ptr[p]; // y
          if (n_dim == 3)
-            jac(i+2*nD) += VI_dW_dp_z[i][p] * err_ptr[p]; // z
+            jac(i*n_dim + 2) += VI_dW_dp_z[i][p] * err_ptr[p]; // z
          
       }
    }

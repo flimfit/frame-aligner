@@ -14,12 +14,13 @@ void D2col(const std::vector<cv::Point3d> &D, column_vector& col, int n_dim)
    int nD = D.size();
    col.set_size(nD * n_dim);
 
+   int idx = 0;
    for (int i = 0; i < nD; i++)
    {
-      col(i) = D[i].x;
-      col(i + nD) = D[i].y;
+      col(idx++) = D[i].x;
+      col(idx++) = D[i].y;
       if (n_dim == 3)
-         col(i + 2 * nD) = D[i].z;
+         col(idx++) = D[i].z;
    }
 }
 
@@ -28,11 +29,13 @@ void col2D(const column_vector& col, std::vector<cv::Point3d> &D, int n_dim)
    int nD = col.size() / n_dim;
    D.resize(nD);
 
+   int idx = 0;
    for (int i = 0; i < nD; i++)
    {
-      D[i].x = col(i);
-      D[i].y = col(i + nD);
-      if (n_dim == 3) D[i].z = col(i + nD);
+      D[i].x = col(idx++);
+      D[i].y = col(idx++);
+      if (n_dim == 3) 
+         D[i].z = col(idx++);
    }
 }
 
