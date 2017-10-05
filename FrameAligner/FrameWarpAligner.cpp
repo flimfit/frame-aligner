@@ -602,6 +602,14 @@ cv::Point3d FrameWarpAligner::warpPoint(const std::vector<cv::Point3d>& D, int x
    return p;
 }
 
+cv::Mat FrameWarpAligner::realignAsFrame(int frame_t, const cv::Mat& frame)
+{
+   cv::Mat warped;
+   warpImage(frame, warped, Dstore[frame_t]);
+   return warped;
+}
+
+
 void FrameWarpAligner::writeRealignmentInfo(std::string filename)
 {
    if (Dstore.empty())

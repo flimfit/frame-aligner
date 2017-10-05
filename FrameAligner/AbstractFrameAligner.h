@@ -89,7 +89,8 @@ public:
    void setRealignmentParams(RealignmentParameters params_) { realign_params = params_; }
    void setImageScanParams(ImageScanParameters params_) { image_params = params_; }
    virtual void setReference(int frame_t, const cv::Mat& reference_) = 0;
-   virtual RealignmentResult addFrame(int frame_t, const cv::Mat& frame) = 0; // shold return aligned frame
+   virtual RealignmentResult addFrame(int frame_t, const cv::Mat& frame) = 0; // should return aligned frame
+   virtual cv::Mat realignAsFrame(int frame_t, const cv::Mat& frame) = 0; // should realign provided frame as if it was frame_t
    virtual void shiftPixel(int frame_t, double& x, double& y, double& z) = 0;
    virtual double getFrameCorrelation(int frame_t) { return 0.; }
    virtual double getFrameCoverage(int frame_t) { return 0.; }

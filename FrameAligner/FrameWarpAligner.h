@@ -66,6 +66,7 @@ public:
    void setNumberOfFrames(int n_frame);
    void setReference(int frame_t, const cv::Mat& reference_);
    RealignmentResult addFrame(int frame_t, const cv::Mat& frame);
+   cv::Mat realignAsFrame(int frame_t, const cv::Mat& frame);
    void shiftPixel(int frame_t, double& x, double& y, double& z);
    double getFrameCorrelation(int frame_t) { return results[frame_t].correlation; };
    double getFrameCoverage(int frame_t) { return results[frame_t].coverage; };
