@@ -6,11 +6,15 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 find_package(OpenCV 3.1 REQUIRED core imgproc highgui )
 find_package(OpenMP REQUIRED)
 find_package(FFTW)
-find_package(dlib REQUIRED)
+#find_package(dlib REQUIRED)
 
 if(APPLE)
     set(EXTRA_LIBRARIES "-framework Accelerate") # for dlib
 endif()
+
+set(dlib_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/dlib)
+message(dlib: ${dlib_INCLUDE_DIRS})
+
 
 include_directories(${Boost_INCLUDE_DIR} ${OpenCV_INCLUDE_DIRS} ${dlib_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
@@ -39,6 +43,6 @@ set(HEADERS
 )
 
 set(FrameAligner_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR} ${OpenCV_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} PARENT_SCOPE)
-set(FrameAligner_LIBRARIES ${OpenCV_LIBS} ${dlib_LIBRARIES} ${EXTRA_LIBRARIES} ${FFTW_LIBRARIES} PARENT_SCOPE)
+set(FrameAligner_LIBRARIES ${OpenCV_LIBS} ${EXTRA_LIBRARIES} ${FFTW_LIBRARIES} dlib::dlib PARENT_SCOPE)
 add_library(FrameAligner OBJECT ${SOURCE} ${HEADERS})
 

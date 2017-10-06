@@ -75,8 +75,8 @@ void interpolatePoint3d(const std::vector<cv::Point3d>& Ds, std::vector<cv::Poin
       return;
    }
 
-   int nD = D.size();
-   int nDs = Ds.size();
+   size_t nD = D.size();
+   size_t nDs = Ds.size();
    auto ud = std::vector<double>(nDs);
    auto vd_x = std::vector<double>(nDs);
    auto vd_y = std::vector<double>(nDs);
@@ -87,7 +87,7 @@ void interpolatePoint3d(const std::vector<cv::Point3d>& Ds, std::vector<cv::Poin
    auto vi_y = std::vector<double>(nDs);
    auto vi_z = std::vector<double>(nDs);
 
-   for (int i = 0; i < nDs; i++)
+   for (size_t i = 0; i < nDs; i++)
    {
       ud[i] = i / (nDs - 1.0);
       vd_x[i] = Ds[i].x;
@@ -95,14 +95,14 @@ void interpolatePoint3d(const std::vector<cv::Point3d>& Ds, std::vector<cv::Poin
       vd_z[i] = Ds[i].z;
    }
 
-   for (int i = 0; i < nD; i++)
+   for (size_t i = 0; i < nD; i++)
       ui[i] = i / (nD - 1.0);
 
    pwl_interp_1d(ud, vd_x, ui, vi_x);
    pwl_interp_1d(ud, vd_y, ui, vi_y);
    pwl_interp_1d(ud, vd_z, ui, vi_z);
 
-   for (int i = 0; i < nD; i++)
+   for (size_t i = 0; i < nD; i++)
    {
       D[i].x = vi_x[i];
       D[i].y = vi_y[i];
