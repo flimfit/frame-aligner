@@ -30,8 +30,8 @@ void applyYFilter(cv::Mat m, cv::Mat& out, std::array<float, 3> filter, std::arr
    for (int z = 0; z < m.size[Z]; z++)
       for (int x = 0; x < m.size[X]; x++)
       {
-         out.at<float>(z, 0, x) = edge_filter1[0] * m.at<float>(z, 0, x) + edge_filter1[1] * m.at<float>(z, 0, x);
-            out.at<float>(z, m.size[Y] - 1, 0) = edge_filter2[0] * m.at<float>(z, m.size[Y] - 1, 0) + edge_filter2[1] * m.at<float>(z, m.size[Y] - 2, 0);
+         out.at<float>(z, 0, x) = edge_filter1[0] * m.at<float>(z, 0, x) + edge_filter1[1] * m.at<float>(z, 1, x);
+         out.at<float>(z, m.size[Y] - 1, x) = edge_filter2[0] * m.at<float>(z, m.size[Y] - 1, x) + edge_filter2[1] * m.at<float>(z, m.size[Y] - 2, x);
       }
 }
 
