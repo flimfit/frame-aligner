@@ -25,16 +25,17 @@ class OffsetVector
 {
 public: 
 
-   OffsetVector<T>(size_t n_ = 0, size_t i0_ = 0)
+   OffsetVector<T>(size_t i0_ = 0, size_t i1_ = 1)
    {
       i0 = i0_;
-      n = n_;
+      i1 = i1_;
+      n = i1 - i0;
       v.resize(n);
    }
 
    T at(int i) 
    {
-      if ((i < i0) || (i >= (i0 + n))) 
+      if ((i < i0) || (i > i1)) 
          return 0;
       return v[i - i0];
    }
@@ -42,11 +43,12 @@ public:
    T& operator[](int i) { return v[i - i0]; }
 
    size_t first() { return i0; }
-   size_t last() { return i0 + n - 1; }
+   size_t last() { return i1; }
 
 private:
    std::vector<T> v;
    size_t i0;
+   size_t i1;
    size_t n;
 };
 
@@ -82,13 +84,15 @@ protected:
    void computeSteepestDecentImages(const cv::Mat& frame);
    double computeHessianEntry(int pi, int pj);
    void computeHessian();
+
+
    void computeJacobian(const cv::Mat& error_img, column_vector& jac);
    void warpImage(const cv::Mat& img, cv::Mat& wimg, const std::vector<cv::Point3d>& D, int invalid_value = 0);
    void warpImageIntensityPreserving(const cv::Mat& img, cv::Mat& wimg, const std::vector<cv::Point3d>& D);
    void warpCoverage(cv::Mat& coverage, const std::vector<cv::Point3d>& D);
    cv::Point3d warpPoint(const std::vector<cv::Point3d>& D, int x, int y, int z, int spatial_binning = 1);
    double computeErrorImage(cv::Mat& wimg, cv::Mat& error_img);
-   
+
    void smoothStack(const cv::Mat& in, cv::Mat& out);
    cv::Mat reshapeForOutput(cv::Mat& m);
    cv::Mat reshapeForProcessing(cv::Mat& m);
@@ -151,6 +155,9 @@ protected:
    std::vector<OffsetVector<float>> VI_dW_dp_x, VI_dW_dp_y, VI_dW_dp_z;
 
    std::unique_ptr<VolumePhaseCorrelator> phase_correlator;
+
+   std::list<std::pair<std::vector<cv::Point3d>, cv::Mat>> error_buffer;
+
 
    friend class OptimisationModel;
 };

@@ -244,6 +244,8 @@ double FrameWarpAligner::computeErrorImage(cv::Mat& wimg, cv::Mat& error_img)
    return ms_error;
 }
 
+
+
 void FrameWarpAligner::shiftPixel(int frame_t, double& x, double& y, double& z)
 {
    if (!realign_params.use_realignment())
@@ -331,9 +333,6 @@ void FrameWarpAligner::precomputeInterp()
 
    }
 
-   int max_VI_dW_dp = dims[X] * dims[Y] * dims[Z];
-   max_VI_dW_dp = max_interval * 2 + 1;
-
    VI_dW_dp_x.clear();
    VI_dW_dp_y.clear();
    VI_dW_dp_z.clear();
@@ -341,9 +340,10 @@ void FrameWarpAligner::precomputeInterp()
    for (int i = 0; i < nD; i++)
    {
       int i0 = D_range[std::max(0, i - 1)].begin;
-      VI_dW_dp_x.push_back(OffsetVector<float>(max_VI_dW_dp, i0));
-      VI_dW_dp_y.push_back(OffsetVector<float>(max_VI_dW_dp, i0));
-      VI_dW_dp_z.push_back(OffsetVector<float>(max_VI_dW_dp, i0));
+      int i1 = D_range[std::min(i, nD - 2)].end;
+      VI_dW_dp_x.push_back(OffsetVector<float>(i0, i1));
+      VI_dW_dp_y.push_back(OffsetVector<float>(i0, i1));
+      VI_dW_dp_z.push_back(OffsetVector<float>(i0, i1));
    }
 }
 
@@ -432,6 +432,8 @@ double FrameWarpAligner::computeHessianEntry(int pi, int pj)
    for (int p = p0; p < p1; p++)
       h += v1.at(p) * v2.at(p);
       
+  
+
    return h;
 }
 
@@ -439,9 +441,8 @@ void FrameWarpAligner::computeHessian()
 {   
    H.set_size(n_dim * nD, n_dim * nD);
 
-   // Diagonal elements
    for (int i = 0; i < nD * n_dim; i++)
-      for (int j = 0; j < nD * n_dim; j++)
+      for (int j = 0; j <= i; j++)
       {
          double h = computeHessianEntry(i, j);
          H(i, j) = h;
