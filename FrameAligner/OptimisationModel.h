@@ -1,5 +1,7 @@
 #pragma once
 #include "FrameWarpAligner.h"
+#include <list>
+#include <utility>
 
 class OptimisationModel
 {
@@ -27,6 +29,8 @@ protected:
    cv::Mat raw_frame;
    cv::Mat frame;
    RealignmentParameters realign_params;
+
+   std::unique_ptr<std::list<std::pair<column_vector, cv::Mat>>> error_buffer;
 };
 
 void D2col(const std::vector<cv::Point3d> &D, column_vector& col, int n_dim);

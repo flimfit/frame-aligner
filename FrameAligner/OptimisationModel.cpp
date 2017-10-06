@@ -7,6 +7,7 @@ raw_frame(raw_frame),
 frame(frame),
 realign_params(aligner->realign_params)
 {
+   error_buffer = std::make_unique<std::list<std::pair<column_vector, cv::Mat>>>();
 }
 
 void D2col(const std::vector<cv::Point3d> &D, column_vector& col, int n_dim)
@@ -51,7 +52,12 @@ double OptimisationModel::operator() (const column_vector& x) const
    aligner->warpImage(frame, warped_image, D, -1);
    double rms_error = aligner->computeErrorImage(warped_image, error_image);
 
-   std::cout << "E: " << rms_error << "\n";
+   auto p = std::make_pair(x, error_image);
+   error_buffer->push_front(p);
+
+   if (error_buffer->size() > 2)
+      error_buffer->pop_back();
+
    return rms_error;
 }
 
@@ -60,11 +66,18 @@ void OptimisationModel::get_derivative_and_hessian(const column_vector& x, colum
    std::vector<cv::Point3d> D;
    cv::Mat warped_image, error_image;
 
-   // Get displacement matrix from warp parameters
    col2D(x, D, aligner->n_dim);
+   auto it = std::find_if(error_buffer->begin(), error_buffer->end(), [x](auto& it) -> bool { return it.first == x; });
 
-   aligner->warpImage(frame, warped_image, D, -1);
-   double rms_error = aligner->computeErrorImage(warped_image, error_image);
+   if (it != error_buffer->end())
+   {
+      error_image = it->second;
+   }
+   else
+   {
+      aligner->warpImage(frame, warped_image, D, -1);
+      aligner->computeErrorImage(warped_image, error_image);
+   }
 
    aligner->computeJacobian(error_image, der);
    hess = aligner->H;
