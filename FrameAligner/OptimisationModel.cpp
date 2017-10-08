@@ -1,11 +1,10 @@
 #include "OptimisationModel.h"
 
 
-OptimisationModel::OptimisationModel(FrameWarpAligner* aligner, const cv::Mat& frame, const cv::Mat& raw_frame) :
-aligner(aligner),
+OptimisationModel::OptimisationModel(std::shared_ptr<AbstractFrameWarper> warper, const cv::Mat& frame, const cv::Mat& raw_frame) :
+warper(warper),
 raw_frame(raw_frame),
-frame(frame),
-realign_params(aligner->realign_params)
+frame(frame)
 {
    error_buffer = std::make_unique<std::list<std::pair<column_vector, cv::Mat>>>();
 }
@@ -47,10 +46,10 @@ double OptimisationModel::operator() (const column_vector& x) const
    cv::Mat warped_image, error_image;
 
    // Get displacement matrix from warp parameters
-   col2D(x, D, aligner->n_dim);
+   col2D(x, D, warper->n_dim);
 
-   aligner->warpImage(frame, warped_image, D, -1);
-   double rms_error = aligner->computeErrorImage(warped_image, error_image);
+   warper->warpImage(frame, warped_image, D, -1);
+   double rms_error = warper->computeErrorImage(warped_image, error_image);
 
    auto p = std::make_pair(x, error_image);
    error_buffer->push_front(p);
@@ -66,7 +65,7 @@ void OptimisationModel::get_derivative_and_hessian(const column_vector& x, colum
    std::vector<cv::Point3d> D;
    cv::Mat warped_image, error_image;
 
-   col2D(x, D, aligner->n_dim);
+   col2D(x, D, warper->n_dim);
    auto it = std::find_if(error_buffer->begin(), error_buffer->end(), [x](auto& it) -> bool { return it.first == x; });
 
    if (it != error_buffer->end())
@@ -75,38 +74,38 @@ void OptimisationModel::get_derivative_and_hessian(const column_vector& x, colum
    }
    else
    {
-      aligner->warpImage(frame, warped_image, D, -1);
-      aligner->computeErrorImage(warped_image, error_image);
+      warper->warpImage(frame, warped_image, D, -1);
+      warper->computeErrorImage(warped_image, error_image);
    }
 
-   aligner->computeJacobian(error_image, der);
-   hess = aligner->H;
+   warper->computeJacobian(error_image, der);
+   hess = warper->H;
 }
 
 cv::Mat OptimisationModel::getMask(const column_vector& x)
 {
    std::vector<cv::Point3d> D;
-   col2D(x, D, aligner->n_dim);
+   col2D(x, D, warper->n_dim);
 
    cv::Mat mask;
-   aligner->warpCoverage(mask, D);
+   warper->warpCoverage(mask, D);
    return mask;
 }
 
 cv::Mat OptimisationModel::getWarpedRawImage(const column_vector& x)
 {
    std::vector<cv::Point3d> D;
-   col2D(x, D, aligner->n_dim);
+   col2D(x, D, warper->n_dim);
    cv::Mat warped_image;
-   aligner->warpImage(raw_frame, warped_image, D);
+   warper->warpImage(raw_frame, warped_image, D);
    return warped_image;
 }
 
 cv::Mat OptimisationModel::getWarpedImage(const column_vector& x)
 {
    std::vector<cv::Point3d> D;
-   col2D(x, D, aligner->n_dim);
+   col2D(x, D, warper->n_dim);
    cv::Mat warped_image;
-   aligner->warpImage(frame, warped_image, D);
+   warper->warpImage(frame, warped_image, D);
    return warped_image;
 }

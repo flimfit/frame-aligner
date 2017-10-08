@@ -1,5 +1,5 @@
 #pragma once
-#include "FrameWarpAligner.h"
+#include "FrameWarper.h"
 #include <list>
 #include <utility>
 
@@ -14,7 +14,7 @@ public:
    typedef ::column_vector column_vector;
    typedef matrix<double> general_matrix;
 
-   OptimisationModel(FrameWarpAligner* aligner, const cv::Mat& frame, const cv::Mat& raw_frame);
+   OptimisationModel(std::shared_ptr<AbstractFrameWarper> warper, const cv::Mat& frame, const cv::Mat& raw_frame);
 
    double operator() (const column_vector& x) const;
    void get_derivative_and_hessian(const column_vector& x, column_vector& der, general_matrix& hess) const;
@@ -25,10 +25,9 @@ public:
 
 protected:
 
-   FrameWarpAligner* aligner;
+   std::shared_ptr<AbstractFrameWarper> warper;
    cv::Mat raw_frame;
    cv::Mat frame;
-   RealignmentParameters realign_params;
 
    std::unique_ptr<std::list<std::pair<column_vector, cv::Mat>>> error_buffer;
 };
