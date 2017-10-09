@@ -182,12 +182,13 @@ void CPUFrameWarper::computeJacobian(const cv::Mat& error_img, column_vector& ja
 
 void AbstractFrameWarper::setReference(const cv::Mat& reference_, int nD_, const ImageScanParameters& image_params)
 {
-   if (reference.dims != 3)
+   if (reference_.dims != 3)
       throw std::runtime_error("Reference must be three dimensional");
 
    reference = reference_;
    nD = nD_;
    
+   dims.resize(3);
    for(int i=0; i<reference.dims; i++)
       dims[i] = reference.size[i];
 

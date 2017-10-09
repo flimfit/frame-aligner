@@ -4,42 +4,8 @@
 #include <utility>
 
 #include <cuda_runtime.h>
-#include "helper_cuda.h"
 
 
-class GpuFrame
-{
-public:
-   GpuFrame(cv::Mat frame)
-   {
-      // Set texture parameters
-      tex.addressMode[0] = cudaAddressModeBorder;
-      tex.addressMode[1] = cudaAddressModeBorder;
-      tex.filterMode = cudaFilterModeLinear;
-      tex.normalized = false; 
-
-      // Allocate array and copy image data
-      cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc(32, 0, 0, 0, cudaChannelFormatKindFloat);
-      cudaExtent extent = make_cudaExtent(frame.size[Z], frame.size[Y], frame.size[X]);
-      checkCudaErrors(cudaMalloc3DArray(&cu_array, &channelDesc, extent));
-      checkCudaErrors(cudaMemcpyToArray(cu_array, 0, 0, frame.data, extent, cudaMemcpyHostToDevice));
-
-      // Bind the array to the texture
-      checkCudaErrors(cudaBindTextureToArray(tex, cu_array, channelDesc));
-   }
-
-   ~GpuFrame()
-   {
-      checkCudaErrors(cudaFree(&cu_array));
-   }
-
-   bool isSame(const cv::Mat& frame_) const { return (frame == frame_); }
-
-protected:
-   cv::Mat frame;
-   texture<float, 3, cudaReadModeElementType> tex;   
-   cudaArray *cu_array;
-};
 
 class GpuFrameWarper : public AbstractFrameWarper
 {

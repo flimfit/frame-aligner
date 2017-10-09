@@ -89,7 +89,7 @@ void FrameWarpAligner::setReference(int frame_t, const cv::Mat& reference_)
 
    nD = realign_params.n_resampling_points;
 
-   warper->setReference(reference, nD, image_params);
+   warper->setReference(smoothed_reference, nD, image_params);
 
    Dlast = cv::Point3d(0, 0, 0);
 }
@@ -141,35 +141,11 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
    size_t best_start = std::min_element(starting_point_eval.begin(), starting_point_eval.end()) - starting_point_eval.begin();
 
    column_vector x = starting_point[best_start];
-
-   auto f_der = [&](const column_vector& x) -> column_vector 
-   {
-      column_vector der;
-      matrix<double> hess;
-      model.get_derivative_and_hessian(x, der, hess);
-      return der;
-   };
-
-   auto f = [&](const column_vector& x) -> double
-   {
-      return model(x);
-   };
-
-
-   /*
-   auto d1 = derivative(f, 4)(x);
-   column_vector d2 = f_der(x);
-   double l = length(d1 - d2);
-
-   std::cout << "Difference between analytic derivative and numerical approximation of derivative: "
-      << l << std::endl;
-   */   
-
    
    try
    {
 	   
-      find_min_trust_region(dlib::objective_delta_stop_strategy(1e-5),
+      find_min_trust_region(dlib::objective_delta_stop_strategy(1e-2),
          model,
          x,
          40 // initial trust region radius

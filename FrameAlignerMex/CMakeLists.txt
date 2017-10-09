@@ -29,7 +29,7 @@ set(HEADERS
    MexUtils.h
 )
 
-matlab_add_mex(NAME FrameAlignerMex SRC ${SOURCE} ${HEADERS} $<TARGET_OBJECTS:FrameAligner>)
+matlab_add_mex(NAME FrameAlignerMex SRC ${SOURCE} ${HEADERS})
 
 include_directories(${FrameAligner_INCLUDE_DIRS})
 target_link_libraries(FrameAlignerMex ${FrameAligner_LIBRARIES})
