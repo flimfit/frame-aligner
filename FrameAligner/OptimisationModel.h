@@ -28,8 +28,6 @@ protected:
    std::shared_ptr<AbstractFrameWarper> warper;
    cv::Mat raw_frame;
    cv::Mat frame;
-
-   std::unique_ptr<std::list<std::pair<column_vector, cv::Mat>>> error_buffer;
 };
 
 void D2col(const std::vector<cv::Point3d> &D, column_vector& col, int n_dim);

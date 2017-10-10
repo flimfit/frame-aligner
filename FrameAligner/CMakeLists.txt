@@ -57,7 +57,7 @@ set(FrameAligner_LIBRARIES ${OpenCV_LIBS} ${EXTRA_LIBRARIES} ${FFTW_LIBRARIES} d
 add_library(FrameAligner STATIC ${SOURCE} ${HEADERS})
 
 set_target_properties(FrameAligner PROPERTIES CUDA_SEPARABLE_COMPILATION ON
-                                              POSITION_INDEPENDENT_CODE ON)
+                                              CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
 if(APPLE)
 # We need to add the path to the driver (libcuda.dylib) as an rpath, 

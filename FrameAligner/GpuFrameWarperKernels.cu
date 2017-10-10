@@ -10,19 +10,8 @@ texture<float, 3, cudaReadModeElementType> tex0;
 texture<float, 3, cudaReadModeElementType> tex1;
 texture<float, 3, cudaReadModeElementType> tex2;
 texture<float, 3, cudaReadModeElementType> tex3;
-texture<float, 3, cudaReadModeElementType> tex4;
-texture<float, 3, cudaReadModeElementType> tex5;
-texture<float, 3, cudaReadModeElementType> tex6;
-texture<float, 3, cudaReadModeElementType> tex7;
-texture<float, 3, cudaReadModeElementType> tex8;
-texture<float, 3, cudaReadModeElementType> tex9;
-texture<float, 3, cudaReadModeElementType> tex10;
-texture<float, 3, cudaReadModeElementType> tex11;
-texture<float, 3, cudaReadModeElementType> tex12;
-texture<float, 3, cudaReadModeElementType> tex13;
-texture<float, 3, cudaReadModeElementType> tex14;
-texture<float, 3, cudaReadModeElementType> tex15;
 
+GpuTextureManager* GpuTextureManager::gpu_texture_manager = nullptr;
 
 texture<float, 3, cudaReadModeElementType>& getTexture(int id)
 {
@@ -32,18 +21,6 @@ texture<float, 3, cudaReadModeElementType>& getTexture(int id)
    case 1: return tex1;
    case 2: return tex2;
    case 3: return tex3;
-   case 4: return tex4;
-   case 5: return tex5;
-   case 6: return tex6;
-   case 7: return tex7;
-   case 8: return tex8;
-   case 9: return tex9;
-   case 10: return tex10;
-   case 11: return tex11;
-   case 12: return tex12;
-   case 13: return tex13;
-   case 14: return tex14;
-   case 15: return tex15;
    }
    throw std::runtime_error("Invalid texture reference");
 }
@@ -81,9 +58,29 @@ GpuTextureManager::GpuTextureManager()
 }
 
 
+class A
+{
+public:
+   int a;
+   int b;
 
-template <unsigned int blockSize>
-__device__ void warpReduce(float *sdata, unsigned int tid) {
+   __device__ A& operator=(int other)
+   {
+      a = other;
+      b = other;
+      return *this;
+   }
+
+   __device__ A& operator+=(const A& other)
+   {
+      a += other.a;
+      b += other.b;
+      return *this;
+   }
+};
+
+template <unsigned int blockSize, class T>
+__device__ void warpReduce(T *sdata, unsigned int tid) {
    if (blockSize >= 64) { sdata[tid] += sdata[tid + 32]; }
    if (blockSize >= 32) { sdata[tid] += sdata[tid + 16]; }
    if (blockSize >= 16) { sdata[tid] += sdata[tid + 8]; }
@@ -92,16 +89,19 @@ __device__ void warpReduce(float *sdata, unsigned int tid) {
    if (blockSize >= 2) { sdata[tid] += sdata[tid + 1]; }
 }
 
-template <unsigned int blockSize>
-__global__ void reduceSum(float *g_idata, float *g_odata, unsigned int n) {
-   extern __shared__ float sdata[];
+template <unsigned int blockSize, class T>
+__global__ void reduceSum(T *g_idata, T *g_odata, unsigned int n) {
+   extern __shared__ char sdata_[];
+   T* sdata = reinterpret_cast<T*>(sdata_);
+
    unsigned int tid = threadIdx.x;
    unsigned int i = blockIdx.x*(blockSize * 2) + tid;
    unsigned int gridSize = blockSize * 2 * gridDim.x;
-   sdata[tid]= 0;
+   sdata[tid] = 0;
    while (i < n) 
    {
-      sdata[tid] += g_idata[i] + g_idata[i + blockSize]; 
+      sdata[tid] += g_idata[i];
+      sdata[tid] += g_idata[i + blockSize]; 
       i += gridSize;
    }
    __syncthreads();
@@ -127,7 +127,7 @@ __device__ float3 warpPoint(int nD, float3* D, float3 offset, int x, int y, int 
 }
 
 
-__global__ void warpAndGetError(int3 size, float3 offset, float* reference, float* error_img, int nD, float3* D)
+__global__ void warpAndGetError(int tex_id, int3 size, float3 offset, float* reference, float* error_img, int nD, float3* D)
 {
    int x = threadIdx.x + blockDim.x * blockIdx.x;
    int y = threadIdx.y + blockDim.y * blockIdx.y;   
@@ -136,19 +136,61 @@ __global__ void warpAndGetError(int3 size, float3 offset, float* reference, floa
 
    float3 p = warpPoint(nD, D, offset, x, y, z);
 
-   float v = tex3D(tex0, p.x, p.y, p.z);
+   float v = 0;
+   if (tex_id == 0)
+      v = tex3D(tex0, p.x, p.y, p.z);
+   else if (tex_id == 1)
+      v = tex3D(tex1, p.x, p.y, p.z);
+   else if (tex_id == 2)
+      v = tex3D(tex2, p.x, p.y, p.z);
+   else if (tex_id == 3)
+      v = tex3D(tex3, p.x, p.y, p.z);
+
+
    float censor = v > 0; // set out of range values to zero
 
    // we have added 1 to use zero as special case
    error_img[idx] = censor * (v - 1.0 - reference[idx]); 
 }
 
-/*
 
-__global__ void computeJacobian(float* error_img, float* jac, int nD, int n_dim)
+
+
+
+__global__ void computeJacobian(float* error_img, float* jac, float3* VI_dW_dp, int nD, int n_dim, int range_max, GpuRange* range)
 {
-   int p = threadIdx.x + blockDim.x * blockIdx.x;
+   int x = threadIdx.x + blockDim.x * blockIdx.x;
 
+   for (int i = 1; i < nD; i++)
+   {
+      int p0 = range[i - 1].begin;
+      int p1 = range[i - 1].end;
+      int p = x + p0;
+
+      if (p <= p1)
+      {
+         jac[i*n_dim] += VI_dW_dp[i*range_max + p].x * error_img[p]; // x 
+         jac[i*n_dim + 1] += VI_dW_dp[i*range_max + p].y * error_img[p]; // y
+         if (n_dim == 3)
+            jac[i*n_dim + 2] += VI_dW_dp[i*range_max + p].z * error_img[p]; // z        
+      }
+   }
+   for (int i = 0; i < (nD - 1); i++)
+   {
+      int p0 = range[i].begin;
+      int p1 = range[i].end;
+      int p = x + p0;
+
+      if (p <= p1)
+         jac[i*n_dim] += VI_dW_dp[i*range_max + p].x * error_img[p]; // x
+      jac[i*n_dim + 1] += VI_dW_dp[i*range_max + p].y * error_img[p]; // y
+      if (n_dim == 3)
+         jac[i*n_dim + 2] += VI_dW_dp[i*range_max + p].z * error_img[p]; // z
+
+   }
+
+
+   /*
    for (int i = 1; i < nD; i++)
    {
       int p0 = D_range[i - 1].begin;
@@ -174,14 +216,12 @@ __global__ void computeJacobian(float* error_img, float* jac, int nD, int n_dim)
          
       }
    }
+   */
    
 }
-*/
 
 
-
-
-GpuFrame::GpuFrame(cv::Mat frame)
+GpuFrame::GpuFrame(cv::Mat frame, int nD)
 {
    auto tex_manager = GpuTextureManager::instance();
    texture = tex_manager->getTextureId();
@@ -199,15 +239,25 @@ GpuFrame::GpuFrame(cv::Mat frame)
    frame.copyTo(frame_cpy);
    frame_cpy += 1.0f;
 
+   size.x = frame.size[2];
+   size.y = frame.size[1];
+   size.z = frame.size[0];
+   size_t volume = size.x * size.y * size.z;
+
    // Allocate array and copy image data
    cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc(32, 0, 0, 0, cudaChannelFormatKindFloat);
-   cudaExtent extent = make_cudaExtent(frame.size[0], frame.size[1], frame.size[2]);
-   size_t copy_size = frame.size[0] * frame.size[1] * frame.size[2] * sizeof(float);
+   cudaExtent extent = make_cudaExtent(size.x, size.y, size.z);
+   size_t copy_size = volume * sizeof(float);
    checkCudaErrors(cudaMalloc3DArray(&cu_array, &channelDesc, extent));
    checkCudaErrors(cudaMemcpyToArray(cu_array, 0, 0, frame.data, copy_size, cudaMemcpyHostToDevice));
 
    // Bind the array to the texture
-   checkCudaErrors(cudaBindTextureToArray(tex, cu_array, channelDesc));
+   checkCudaErrors(cudaBindTextureToArray(&tex, cu_array, &channelDesc));
+
+
+   checkCudaErrors(cudaMalloc(&error_sum, 1));
+   checkCudaErrors(cudaMalloc(&error_image, volume));
+   checkCudaErrors(cudaMalloc(&D, nD));
 }
 
 GpuFrame::~GpuFrame()
@@ -218,4 +268,57 @@ GpuFrame::~GpuFrame()
    texture = tex_manager->getTextureId();
    auto& tex = getTexture(texture);
    checkCudaErrors(cudaUnbindTexture(tex));
+
+   checkCudaErrors(cudaFree(error_sum));
+   checkCudaErrors(cudaFree(error_image));
+   checkCudaErrors(cudaFree(D));
+}
+
+
+GpuReferenceInformation::GpuReferenceInformation(const cv::Mat& ref_, float3 offset, int nD, int range_max) :
+   offset(offset), nD(nD), range_max(range_max)
+{
+   int n_px = ref_.size[0] * ref_.size[1] * ref_.size[2];
+
+   checkCudaErrors(cudaMalloc(&reference, n_px));
+   checkCudaErrors(cudaMalloc(&VI_dW_dp, range_max * nD));
+   checkCudaErrors(cudaMalloc(&range, nD));
+
+   checkCudaErrors(cudaMemcpy(reference, ref_.data, n_px * sizeof(float), cudaMemcpyHostToDevice));
+}
+
+GpuReferenceInformation::~GpuReferenceInformation()
+{
+   checkCudaErrors(cudaFree(VI_dW_dp));
+   checkCudaErrors(cudaFree(range));
+   checkCudaErrors(cudaFree(reference));
+}
+
+
+
+double computeError(GpuFrame* frame, GpuReferenceInformation* gpu_ref)
+{
+   auto size = frame->size;
+   int volume = size.x * size.y * size.z;
+
+   dim3 dimBlock(32, 32, 1);
+   dim3 dimGrid(size.x / 32, size.y / 32, size.z);
+
+   int id = frame->getTextureId();
+
+   warpAndGetError<<<dimGrid, dimBlock, 0>>>(id, frame->size, gpu_ref->offset, gpu_ref->reference, frame->error_image, gpu_ref->nD, frame->D);
+
+   const int block_size = 512;
+   int n_block = volume / block_size;
+   reduceSum<block_size> << <n_block, block_size, block_size * sizeof(float) >> > (frame->error_image, frame->error_sum, volume);
+
+   float error_sum;
+   cudaMemcpy(&error_sum, frame->error_sum, sizeof(float), cudaMemcpyDeviceToHost);
+
+   return error_sum;
+}
+
+void computeJacobian(GpuFrame* frame, GpuReferenceInformation* gpu_ref)
+{
+   //float* error_img, float* jac, float3* VI_dW_dp, int nD, int n_dim, int range_max, GpuRange* range
 }

@@ -57,7 +57,7 @@ public:
       v.resize(n);
    }
 
-   T at(int i) 
+   T at(int i) const
    {
       if ((i < i0) || (i > i1)) 
          return 0;
@@ -68,6 +68,7 @@ public:
 
    size_t first() { return i0; }
    size_t last() { return i1; }
+   size_t size() { return n; }
 
 private:
    std::vector<T> v;
@@ -83,11 +84,13 @@ class AbstractFrameWarper
 {
 public:
 
+   virtual ~AbstractFrameWarper() {};
+
    void setReference(const cv::Mat& reference, int nD, const ImageScanParameters& image_params);
 
-   virtual double computeErrorImage(cv::Mat& wimg, cv::Mat& error_img) = 0;
-   virtual void computeJacobian(const cv::Mat& error_img, column_vector& jac) = 0;
-   
+   virtual double getError(const cv::Mat& img, const std::vector<cv::Point3d>& D) = 0;
+   virtual void getJacobian(const cv::Mat& img, const std::vector<cv::Point3d>& D, column_vector& jac) = 0;
+
    virtual void warpImage(const cv::Mat& img, cv::Mat& wimg, const std::vector<cv::Point3d>& D, int invalid_value = 0) = 0;
    virtual void warpImageIntensityPreserving(const cv::Mat& img, cv::Mat& wimg, const std::vector<cv::Point3d>& D) = 0;
    virtual void warpCoverage(cv::Mat& coverage, const std::vector<cv::Point3d>& D) = 0;
@@ -112,24 +115,34 @@ protected:
    cv::Mat Di;
    cv::Mat Df;
    matrix<double> H;
-   std::vector<OffsetVector<float>> VI_dW_dp_x, VI_dW_dp_y, VI_dW_dp_z;
+   std::vector<OffsetVector<cv::Point3f>> VI_dW_dp;
    std::vector<Range> D_range;
    
    int nD;
    cv::Mat reference;
+   ImageScanParameters image_params;
 
    friend class OptimisationModel;
 };
 
-class CPUFrameWarper : public AbstractFrameWarper
+class CpuFrameWarper : public AbstractFrameWarper
 {
 public:
-   double computeErrorImage(cv::Mat& wimg, cv::Mat& error_img);
-   void computeJacobian(const cv::Mat& error_img, column_vector& jac);
+
+   double getError(const cv::Mat& img, const std::vector<cv::Point3d>& D);
+   void getJacobian(const cv::Mat& img, const std::vector<cv::Point3d>& D, column_vector& jac);
 
    void warpImage(const cv::Mat& img, cv::Mat& wimg, const std::vector<cv::Point3d>& D, int invalid_value = 0);
    void warpImageIntensityPreserving(const cv::Mat& img, cv::Mat& wimg, const std::vector<cv::Point3d>& D);
    void warpCoverage(cv::Mat& coverage, const std::vector<cv::Point3d>& D);
 
    cv::Point3d warpPoint(const std::vector<cv::Point3d>& D, int x, int y, int z, int spatial_binning = 1);
+
+protected:
+
+   double computeErrorImage(cv::Mat& wimg, cv::Mat& error_img);
+   void computeJacobian(const cv::Mat& error_img, column_vector& jac);
+
+   std::map<void*, cv::Mat> error_buffer;
+   
 };

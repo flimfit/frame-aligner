@@ -1,7 +1,7 @@
 #include "FrameWarper.h"
 #include "Sobel3d.h"
 
-double CPUFrameWarper::computeErrorImage(cv::Mat& wimg, cv::Mat& error_img)
+double CpuFrameWarper::computeErrorImage(cv::Mat& wimg, cv::Mat& error_img)
 {
    int n_px = dims[X] * dims[Y] * dims[Z];
 
@@ -28,7 +28,7 @@ double CPUFrameWarper::computeErrorImage(cv::Mat& wimg, cv::Mat& error_img)
    return ms_error;
 }
 
-void CPUFrameWarper::warpImage(const cv::Mat& img, cv::Mat& wimg, const std::vector<cv::Point3d>& D, int invalid_value)
+void CpuFrameWarper::warpImage(const cv::Mat& img, cv::Mat& wimg, const std::vector<cv::Point3d>& D, int invalid_value)
 {
    wimg = cv::Mat(dims, CV_32F, cv::Scalar(invalid_value));
    
@@ -78,7 +78,7 @@ void CPUFrameWarper::warpImage(const cv::Mat& img, cv::Mat& wimg, const std::vec
          }
 }
 
-void CPUFrameWarper::warpImageIntensityPreserving(const cv::Mat& img, cv::Mat& wimg, const std::vector<cv::Point3d>& D)
+void CpuFrameWarper::warpImageIntensityPreserving(const cv::Mat& img, cv::Mat& wimg, const std::vector<cv::Point3d>& D)
 {
    wimg = cv::Mat(dims, CV_16U, cv::Scalar(0));
 
@@ -98,7 +98,7 @@ void CPUFrameWarper::warpImageIntensityPreserving(const cv::Mat& img, cv::Mat& w
 }
 
 
-void CPUFrameWarper::warpCoverage(cv::Mat& coverage, const std::vector<cv::Point3d>& D)
+void CpuFrameWarper::warpCoverage(cv::Mat& coverage, const std::vector<cv::Point3d>& D)
 {
    coverage = cv::Mat(dims, CV_16U, cv::Scalar(0));
 
@@ -117,7 +117,7 @@ void CPUFrameWarper::warpCoverage(cv::Mat& coverage, const std::vector<cv::Point
       }
 }
 
-cv::Point3d CPUFrameWarper::warpPoint(const std::vector<cv::Point3d>& D, int x, int y, int z, int spatial_binning)
+cv::Point3d CpuFrameWarper::warpPoint(const std::vector<cv::Point3d>& D, int x, int y, int z, int spatial_binning)
 {
    double factor = 1.0 / spatial_binning;
    int xs = (int) (x / factor);
@@ -144,7 +144,7 @@ cv::Point3d CPUFrameWarper::warpPoint(const std::vector<cv::Point3d>& D, int x, 
    return p;
 }
 
-void CPUFrameWarper::computeJacobian(const cv::Mat& error_img, column_vector& jac)
+void CpuFrameWarper::computeJacobian(const cv::Mat& error_img, column_vector& jac)
 {
    jac.set_size(nD * n_dim);
    std::fill(jac.begin(), jac.end(), 0);
@@ -158,10 +158,10 @@ void CPUFrameWarper::computeJacobian(const cv::Mat& error_img, column_vector& ja
       int p1 = D_range[i - 1].end;
       for (int p = p0; p < p1; p++)
       {
-         jac(i*n_dim) += VI_dW_dp_x[i][p] * err_ptr[p]; // x 
-         jac(i*n_dim + 1) += VI_dW_dp_y[i][p] * err_ptr[p]; // y
+         jac(i*n_dim) += VI_dW_dp[i][p].x * err_ptr[p]; // x 
+         jac(i*n_dim + 1) += VI_dW_dp[i][p].y * err_ptr[p]; // y
          if (n_dim == 3)
-            jac(i*n_dim + 2) += VI_dW_dp_z[i][p] * err_ptr[p]; // z        
+            jac(i*n_dim + 2) += VI_dW_dp[i][p].z * err_ptr[p]; // z        
       }
    }
    for (int i = 0; i < (nD - 1); i++)
@@ -170,24 +170,40 @@ void CPUFrameWarper::computeJacobian(const cv::Mat& error_img, column_vector& ja
       int p1 = D_range[i].end;
       for (int p = p0; p < p1; p++)
       {
-         jac(i*n_dim) += VI_dW_dp_x[i][p] * err_ptr[p]; // x
-         jac(i*n_dim + 1) += VI_dW_dp_y[i][p] * err_ptr[p]; // y
+         jac(i*n_dim) += VI_dW_dp[i][p].x * err_ptr[p]; // x
+         jac(i*n_dim + 1) += VI_dW_dp[i][p].y * err_ptr[p]; // y
          if (n_dim == 3)
-            jac(i*n_dim + 2) += VI_dW_dp_z[i][p] * err_ptr[p]; // z
+            jac(i*n_dim + 2) += VI_dW_dp[i][p].z * err_ptr[p]; // z
          
       }
    }
 }
 
+double CpuFrameWarper::getError(const cv::Mat& frame, const std::vector<cv::Point3d>& D)
+{
+   cv::Mat warped_image, error_image;
+   warpImage(frame, warped_image, D, -1);
+   double err = computeErrorImage(warped_image, error_image);
+   error_buffer[frame.data] = error_image;
+   return err;
+}
 
-void AbstractFrameWarper::setReference(const cv::Mat& reference_, int nD_, const ImageScanParameters& image_params)
+void CpuFrameWarper::getJacobian(const cv::Mat& frame, const std::vector<cv::Point3d>& D, column_vector& jac)
+{
+   cv::Mat error_image = error_buffer[frame.data];
+   computeJacobian(error_image, jac);
+}
+
+
+
+void AbstractFrameWarper::setReference(const cv::Mat& reference_, int nD_, const ImageScanParameters& image_params_)
 {
    if (reference_.dims != 3)
       throw std::runtime_error("Reference must be three dimensional");
 
    reference = reference_;
    nD = nD_;
-   
+   image_params = image_params_;
    dims.resize(3);
    for(int i=0; i<reference.dims; i++)
       dims[i] = reference.size[i];
@@ -260,26 +276,13 @@ void AbstractFrameWarper::precomputeInterp(const ImageScanParameters& image_para
 
    D_range[i].end = dims[X]*dims[Y]*dims[Z] - 1;
 
-   int max_interval = 0;
-   for (int i = 0; i < nD; i++)
-   {
-      int interval = D_range[i].interval();
-      if (interval > max_interval)
-         max_interval = D_range[i].interval();
-
-   }
-
-   VI_dW_dp_x.clear();
-   VI_dW_dp_y.clear();
-   VI_dW_dp_z.clear();
-
+   VI_dW_dp.clear();
+   
    for (int i = 0; i < nD; i++)
    {
       int i0 = D_range[std::max(0, i - 1)].begin;
       int i1 = D_range[std::min(i, nD - 2)].end;
-      VI_dW_dp_x.push_back(OffsetVector<float>(i0, i1));
-      VI_dW_dp_y.push_back(OffsetVector<float>(i0, i1));
-      VI_dW_dp_z.push_back(OffsetVector<float>(i0, i1));
+      VI_dW_dp.push_back(OffsetVector<cv::Point3f>(i0, i1));
    }
 }
 
@@ -297,35 +300,37 @@ void AbstractFrameWarper::computeSteepestDecentImages(const cv::Mat& frame)
    float* nabla_Tzd = (float*)nabla_Tz.data;
    float* Dfd = (float*)Df.data;
 
-   //#pragma omp parallel for
    for (int i = 1; i < nD; i++)
    {
       int p0 = D_range[i - 1].begin;
       int p1 = D_range[i - 1].end;
       for (int p = p0; p < p1; p++)
       {
+         cv::Point3f& dp = VI_dW_dp[i][p];
+
          double jac = Dfd[p];
-         VI_dW_dp_x[i][p] = nabla_Txd[p] * jac;
-         VI_dW_dp_y[i][p] = nabla_Tyd[p] * jac;
+         dp.x = nabla_Txd[p] * jac;
+         dp.y = nabla_Tyd[p] * jac;
 
          if (n_dim == 3)
-            VI_dW_dp_z[i][p] = nabla_Tzd[p] * jac;
+            dp.z = nabla_Tzd[p] * jac;
       }
    }
    
-   //#pragma omp parallel for
    for(int i = 0; i < (nD - 1); i++)
    {
       int p0 = D_range[i].begin;
       int p1 = D_range[i].end;
       for (int p = p0; p < p1; p++)
       {
+         cv::Point3f& dp = VI_dW_dp[i][p];
+         
          double jac = 1 - Dfd[p];
-         VI_dW_dp_x[i][p] = nabla_Txd[p] * jac;
-         VI_dW_dp_y[i][p] = nabla_Tyd[p] * jac;
+         dp.x = nabla_Txd[p] * jac;
+         dp.y = nabla_Tyd[p] * jac;
 
          if (n_dim == 3)
-            VI_dW_dp_z[i][p] = nabla_Tzd[p] * jac;
+            dp.z = nabla_Tzd[p] * jac;
       }
    }
 }
@@ -335,35 +340,34 @@ double AbstractFrameWarper::computeHessianEntry(int pi, int pj)
    int i = pi / n_dim;
    int j = pj / n_dim;
 
+   int di = pi % n_dim;
+   int dj = pj % n_dim;
+
+
    if (j > i) return computeHessianEntry(pj, pi);
    if ((i - j) > 1) return 0;
 
-   auto getV = [this](int i) -> const OffsetVector<float>& {
-      int d = i % n_dim;
-      int idx = i / n_dim;
+
+   auto get = [](const OffsetVector<cv::Point3f>& v, int p, int d) -> float
+   { 
       switch (d)
       {
-      case 0:
-         return VI_dW_dp_x[idx];
-      case 1:
-         return VI_dW_dp_y[idx];
-      case 2:
-         return VI_dW_dp_z[idx];
+      case 0: return v.at(p).x;
+      case 1: return v.at(p).y;
+      case 2: return v.at(p).z;
       }
    };
 
-   auto v1 = getV(pi);
-   auto v2 = getV(pj);
+   auto& vi = VI_dW_dp[i];
+   auto& vj = VI_dW_dp[j];
   
-   int p0 = std::max(v1.first(), v2.first());
-   int p1 = std::min(v1.last(), v2.last());
+   int p0 = std::max(vi.first(), vj.first());
+   int p1 = std::min(vi.last(), vj.last());
 
    double h = 0;
    for (int p = p0; p < p1; p++)
-      h += v1.at(p) * v2.at(p);
+      h += get(vi, p, di) * get(vj, p, dj);
       
-  
-
    return h;
 }
 
@@ -379,3 +383,4 @@ void AbstractFrameWarper::computeHessian()
          H(j, i) = h;
       }
 }
+

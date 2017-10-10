@@ -6,12 +6,11 @@
 #include <fstream>
 #include <algorithm>
 
-
-
 FrameWarpAligner::FrameWarpAligner(RealignmentParameters params)
 {
    realign_params = params;
-   warper = std::make_shared<CPUFrameWarper>();
+   warper = std::make_shared<CpuFrameWarper>();
+   gpu_warper = std::make_shared<GpuFrameWarper>();
 }
 
 cv::Mat FrameWarpAligner::reshapeForOutput(cv::Mat& m)
@@ -90,6 +89,7 @@ void FrameWarpAligner::setReference(int frame_t, const cv::Mat& reference_)
    nD = realign_params.n_resampling_points;
 
    warper->setReference(smoothed_reference, nD, image_params);
+   gpu_warper->setReference(smoothed_reference, nD, image_params);
 
    Dlast = cv::Point3d(0, 0, 0);
 }

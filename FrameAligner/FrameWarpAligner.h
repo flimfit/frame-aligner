@@ -10,6 +10,7 @@
 #include "Cv3dUtils.h"
 
 #include "FrameWarper.h"
+#include "GpuFrameWarper.h"
 
 class FrameWarpAligner : public AbstractFrameAligner
 {
@@ -47,6 +48,7 @@ protected:
    cv::Mat sum_1, sum_2;
    
    std::shared_ptr<AbstractFrameWarper> warper;
+   std::shared_ptr<AbstractFrameWarper> gpu_warper;
 
 
    cv::Point3d Dlast;

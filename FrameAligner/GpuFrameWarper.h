@@ -1,7 +1,8 @@
 #include "FrameWarper.h"
 #include "GpuFrameWarperKernels.h"
-#include <list>
+#include <map>
 #include <utility>
+#include <memory>
 
 #include <cuda_runtime.h>
 
@@ -10,8 +11,9 @@
 class GpuFrameWarper : public AbstractFrameWarper
 {
 public:
-   double computeErrorImage(cv::Mat& wimg, cv::Mat& error_img);
-   void computeJacobian(const cv::Mat& error_img, column_vector& jac);
+
+   double getError(const cv::Mat& img, const std::vector<cv::Point3d>& D);
+   void getJacobian(const cv::Mat& img, const std::vector<cv::Point3d>& D, column_vector& jac);
 
    void warpImage(const cv::Mat& img, cv::Mat& wimg, const std::vector<cv::Point3d>& D, int invalid_value = 0);
    void warpImageIntensityPreserving(const cv::Mat& img, cv::Mat& wimg, const std::vector<cv::Point3d>& D);
@@ -24,6 +26,9 @@ public:
 
 protected:
    void setupReferenceInformation();
+   
+   std::unique_ptr<GpuReferenceInformation> gpu_reference;
 
-   std::list<GpuFrame> frames;
+   std::map<void*,std::shared_ptr<GpuFrame>> frames;
+
 };
