@@ -15,13 +15,10 @@ public:
    typedef matrix<double> general_matrix;
 
    OptimisationModel(std::shared_ptr<AbstractFrameWarper> warper, const cv::Mat& frame, const cv::Mat& raw_frame);
-
+   ~OptimisationModel();
+   
    double operator() (const column_vector& x) const;
    void get_derivative_and_hessian(const column_vector& x, column_vector& der, general_matrix& hess) const;
-
-   cv::Mat getMask(const column_vector& x);
-   cv::Mat getWarpedRawImage(const column_vector& x);
-   cv::Mat getWarpedImage(const column_vector& x);
 
 protected:
 

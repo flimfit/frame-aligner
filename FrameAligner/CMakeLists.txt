@@ -3,7 +3,7 @@ project(FrameAligner LANGUAGES CXX CUDA)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-find_package(OpenCV 3.1 REQUIRED core imgproc highgui)
+find_package(OpenCV 3.1 REQUIRED core imgproc imgcodecs videoio)
 find_package(FFTW)
 find_package(CUDA)
 #find_package(dlib REQUIRED)
@@ -15,10 +15,7 @@ endif()
 set(dlib_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/dlib)
 message(dlib: ${dlib_INCLUDE_DIRS})
 
-list(APPEND CUDA_NVCC_FLAGS "-v")
-
-set(CUDA_64_BIT_DEVICE_CODE ON)
-set(CUDA_VERBOSE_BUILD ON)
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -std=c++11 -arch=sm_30")
 
 include_directories(${Boost_INCLUDE_DIR} ${OpenCV_INCLUDE_DIRS} ${dlib_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} ${CUDA_INCLUDE_DIRS})
 
@@ -53,11 +50,11 @@ set(HEADERS
 )
 
 set(FrameAligner_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR} ${OpenCV_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} PARENT_SCOPE)
-set(FrameAligner_LIBRARIES ${OpenCV_LIBS} ${EXTRA_LIBRARIES} ${FFTW_LIBRARIES} dlib::dlib PARENT_SCOPE)
-add_library(FrameAligner STATIC ${SOURCE} ${HEADERS})
+set(FrameAligner_LIBRARIES ${OpenCV_LIBS} ${EXTRA_LIBRARIES} ${FFTW_LIBRARIES} ${dlib_LIBRARIES} PARENT_SCOPE)
+add_library(FrameAligner OBJECT ${SOURCE} ${HEADERS})
 
-set_target_properties(FrameAligner PROPERTIES CUDA_SEPARABLE_COMPILATION ON
-                                              CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+target_compile_features(FrameAligner PUBLIC cxx_std_11)
+
 
 if(APPLE)
 # We need to add the path to the driver (libcuda.dylib) as an rpath, 

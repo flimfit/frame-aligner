@@ -6,6 +6,14 @@ warper(warper),
 raw_frame(raw_frame),
 frame(frame)
 {
+   warper->registerFrame(frame);
+   warper->registerFrame(raw_frame);
+}
+
+OptimisationModel::~OptimisationModel()
+{
+   warper->deregisterFrame(frame);
+   warper->deregisterFrame(raw_frame);
 }
 
 void D2col(const std::vector<cv::Point3d> &D, column_vector& col, int n_dim)
@@ -62,30 +70,3 @@ void OptimisationModel::get_derivative_and_hessian(const column_vector& x, colum
    hess = warper->H;
 }
 
-cv::Mat OptimisationModel::getMask(const column_vector& x)
-{
-   std::vector<cv::Point3d> D;
-   col2D(x, D, warper->n_dim);
-
-   cv::Mat mask;
-   warper->warpCoverage(mask, D);
-   return mask;
-}
-
-cv::Mat OptimisationModel::getWarpedRawImage(const column_vector& x)
-{
-   std::vector<cv::Point3d> D;
-   col2D(x, D, warper->n_dim);
-   cv::Mat warped_image;
-   warper->warpImage(raw_frame, warped_image, D);
-   return warped_image;
-}
-
-cv::Mat OptimisationModel::getWarpedImage(const column_vector& x)
-{
-   std::vector<cv::Point3d> D;
-   col2D(x, D, warper->n_dim);
-   cv::Mat warped_image;
-   warper->warpImage(frame, warped_image, D);
-   return warped_image;
-}

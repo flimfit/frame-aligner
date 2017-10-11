@@ -78,10 +78,12 @@ void CpuFrameWarper::warpImage(const cv::Mat& img, cv::Mat& wimg, const std::vec
          }
 }
 
-void CpuFrameWarper::warpImageIntensityPreserving(const cv::Mat& img, cv::Mat& wimg, const std::vector<cv::Point3d>& D)
+void CpuFrameWarper::warpImageIntensityPreserving(const cv::Mat& img, cv::Mat& wimg, cv::Mat& coverage, const std::vector<cv::Point3d>& D)
+
 {
    wimg = cv::Mat(dims, CV_16U, cv::Scalar(0));
-
+   coverage = cv::Mat(dims, CV_16U, cv::Scalar(0));
+   
    for (int z = 0; z < dims[Z]; z++)
       for (int y = 0; y < dims[Y]; y++)
          for (int x = 0; x < dims[X]; x++)
@@ -93,55 +95,11 @@ void CpuFrameWarper::warpImageIntensityPreserving(const cv::Mat& img, cv::Mat& w
                                     (int)round(x - loc.x) };              
                
             if (isValidPoint(locr, dims))
+            {
                wimg.at<uint16_t>(locr) += img.at<float>(z, y, x);
+               coverage.at<uint16_t>(locr)++;               
+            }
          }
-}
-
-
-void CpuFrameWarper::warpCoverage(cv::Mat& coverage, const std::vector<cv::Point3d>& D)
-{
-   coverage = cv::Mat(dims, CV_16U, cv::Scalar(0));
-
-   for(int z = 0; z < dims[Z]; z++)
-   for (int y = 0; y < dims[Y]; y++)
-      for (int x = 0; x < dims[X]; x++)
-      {
-         cv::Point3d loc = warpPoint(D, x, y, z);
-
-         cv::Vec<int,3> locr = { (int)round(z - loc.z),
-                                 (int)round(y - loc.y),
-                                 (int)round(x - loc.x) };
-                  
-         if (isValidPoint(locr, dims))
-            coverage.at<uint16_t>(locr)++;
-      }
-}
-
-cv::Point3d CpuFrameWarper::warpPoint(const std::vector<cv::Point3d>& D, int x, int y, int z, int spatial_binning)
-{
-   double factor = 1.0 / spatial_binning;
-   int xs = (int) (x / factor);
-   int ys = (int) (y / factor);
-
-   if (   (xs < 0) || (xs >= dims[X]) 
-       || (ys < 0) || (ys >= dims[Y])
-       || (z  < 0) || (z  >= dims[Z]))
-      return cv::Point3d(0,0,0);
-
-   float* Df_d = reinterpret_cast<float*>(Df.data);
-   uint16_t* Di_d = reinterpret_cast<uint16_t*>(Di.data);
-   int loc = (z * dims[Y] + ys) * dims[X] + xs;
-
-   double f = Df_d[loc];
-   int i = Di_d[loc];
-
-   if (i >= (nD-1))
-      int a = 1;
-
-   cv::Point3d p = f * D[i + 1] + (1 - f) * D[i];
-   p *= factor;
-
-   return p;
 }
 
 void CpuFrameWarper::computeJacobian(const cv::Mat& error_img, column_vector& jac)
@@ -213,6 +171,8 @@ void AbstractFrameWarper::setReference(const cv::Mat& reference_, int nD_, const
    precomputeInterp(image_params);
    computeSteepestDecentImages(reference);
    computeHessian();
+
+   setupReferenceInformation();
 }
 
 /*
@@ -384,3 +344,30 @@ void AbstractFrameWarper::computeHessian()
       }
 }
 
+cv::Point3d AbstractFrameWarper::warpPoint(const std::vector<cv::Point3d>& D, int x, int y, int z, int spatial_binning)
+{
+   double factor = 1.0 / spatial_binning;
+   int xs = (int) (x / factor);
+   int ys = (int) (y / factor);
+
+   if (   (xs < 0) || (xs >= dims[X]) 
+       || (ys < 0) || (ys >= dims[Y])
+       || (z  < 0) || (z  >= dims[Z]))
+      return cv::Point3d(0,0,0);
+
+   float* Df_d = reinterpret_cast<float*>(Df.data);
+   uint16_t* Di_d = reinterpret_cast<uint16_t*>(Di.data);
+   int loc = (z * dims[Y] + ys) * dims[X] + xs;
+
+   double f = Df_d[loc];
+   int i = Di_d[loc];
+
+   if (i >= (nD-1))
+      int a = 1;
+
+   cv::Point3d p = f * D[i + 1] + (1 - f) * D[i];
+   p *= factor;
+
+   return p;
+
+}

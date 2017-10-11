@@ -9,8 +9,8 @@
 FrameWarpAligner::FrameWarpAligner(RealignmentParameters params)
 {
    realign_params = params;
-   warper = std::make_shared<CpuFrameWarper>();
-   gpu_warper = std::make_shared<GpuFrameWarper>();
+   warper = std::make_shared<GpuFrameWarper>();
+   alt_warper = std::make_shared<CpuFrameWarper>();
 }
 
 cv::Mat FrameWarpAligner::reshapeForOutput(cv::Mat& m)
@@ -89,7 +89,8 @@ void FrameWarpAligner::setReference(int frame_t, const cv::Mat& reference_)
    nD = realign_params.n_resampling_points;
 
    warper->setReference(smoothed_reference, nD, image_params);
-   gpu_warper->setReference(smoothed_reference, nD, image_params);
+   if (alt_warper)
+      alt_warper->setReference(smoothed_reference, nD, image_params);
 
    Dlast = cv::Point3d(0, 0, 0);
 }
@@ -163,11 +164,11 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
 
    std::cout << "*";
 
-   cv::Mat warped_smoothed = model.getWarpedImage(x);
-   cv::Mat warped = model.getWarpedRawImage(x);
-   cv::Mat mask = model.getMask(x);
+   cv::Mat warped_smoothed, warped, mask, intensity_preserving, m;
+   warper->warpImage(raw_frame, warped, D);
+   warper->warpImage(frame, warped_smoothed, D);
 
-   cv::Mat m;
+   warper->warpImageIntensityPreserving(raw_frame, intensity_preserving, mask, D);
    cv::compare(mask, 0, m, cv::CMP_GT);
    
 
@@ -179,17 +180,15 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
    r.unaligned_correlation = correlation(frame, smoothed_reference, m);
    r.coverage = ((double)cv::countNonZero(mask)) / (dims[X] * dims[Y] * dims[Z]);
    
-   cv::Mat intensity_preserving(frame.dims, frame.size, CV_16U, cv::Scalar(0));
-   if (r.correlation >= realign_params.correlation_threshold && r.coverage >= realign_params.coverage_threshold)
-      warper->warpImageIntensityPreserving(raw_frame, intensity_preserving, D);
+   if (r.correlation < realign_params.correlation_threshold || r.coverage < realign_params.coverage_threshold)
+      intensity_preserving = 0;
+
    r.realigned_preserving = reshapeForOutput(intensity_preserving);
    r.done = true;
    
    results[frame_t] = r;
 
    return r;
-
-
 }
 
 void FrameWarpAligner::shiftPixel(int frame_t, double& x, double& y, double& z)

@@ -17,12 +17,16 @@ public:
    int getTextureId() { return texture; };
 
    float* error_image;
+   float* error_sq_image;
    float* error_sum;
+   uint16_t* mask;
+   float3* jacobian;
    float3* D;
    int3 size;
 
-protected:
    cv::Mat frame;
+   
+protected:
    cudaArray *cu_array;
    int texture;
 };
@@ -40,6 +44,7 @@ public:
    GpuReferenceInformation(const cv::Mat& reference, float3 offset, int nD, int range_max);
    ~GpuReferenceInformation();
 
+   cv::Mat cvref;
    float* reference = nullptr;
    float3 *VI_dW_dp = nullptr;
    GpuRange *range = nullptr;
@@ -48,4 +53,7 @@ public:
    int range_max = 0;
 };
 
+void computeWarp(GpuFrame* frame, GpuReferenceInformation* gpu_ref);
+void computeIntensityPreservingWarp(GpuFrame* frame, GpuReferenceInformation* gpu_ref);
 double computeError(GpuFrame* frame, GpuReferenceInformation* gpu_ref);
+std::vector<float3> computeJacobian(GpuFrame* frame, GpuReferenceInformation* gpu_ref);

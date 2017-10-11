@@ -48,7 +48,7 @@ protected:
    cv::Mat sum_1, sum_2;
    
    std::shared_ptr<AbstractFrameWarper> warper;
-   std::shared_ptr<AbstractFrameWarper> gpu_warper;
+   std::shared_ptr<AbstractFrameWarper> alt_warper;
 
 
    cv::Point3d Dlast;
