@@ -9,11 +9,15 @@
 
 GpuFrameWarper::GpuFrameWarper()
 {
-   bool has_gpu = checkCudaCapabilities(3,0);
-
-   if (!has_gpu)
+   if (!hasSupportedGpu())
       throw std::runtime_error("No supported GPU");
 }
+
+bool GpuFrameWarper::hasSupportedGpu()
+{
+   return checkCudaCapabilities(3, 0);
+}
+
 
 int GpuFrameWarper::registerWorkingSpace(const std::vector<cv::Mat>& new_frames)
 {

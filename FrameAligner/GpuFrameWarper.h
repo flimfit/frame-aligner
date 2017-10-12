@@ -23,6 +23,8 @@ public:
    int registerWorkingSpace(const std::vector<cv::Mat>& frames);
    void deregisterWorkingSpace(int space_id);
 
+   static bool hasSupportedGpu();
+
 protected:
    void setupReferenceInformation();
    

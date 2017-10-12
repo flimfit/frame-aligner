@@ -9,7 +9,11 @@
 FrameWarpAligner::FrameWarpAligner(RealignmentParameters params)
 {
    realign_params = params;
-   warper = std::make_shared<GpuFrameWarper>();
+   if (GpuFrameWarper::hasSupportedGpu())
+      warper = std::make_shared<GpuFrameWarper>();
+   else
+      warper = std::make_shared<CpuFrameWarper>();
+
    alt_warper = std::make_shared<CpuFrameWarper>();
 }
 

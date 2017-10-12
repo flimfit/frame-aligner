@@ -52,10 +52,11 @@ set(HEADERS
 
 set(FrameAligner_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR} ${OpenCV_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} PARENT_SCOPE)
 set(FrameAligner_LIBRARIES ${OpenCV_LIBS} ${EXTRA_LIBRARIES} ${TIFF_LIBRARIES} ${FFTW_LIBRARIES} ${dlib_LIBRARIES} PARENT_SCOPE)
-add_library(FrameAligner OBJECT ${SOURCE} ${HEADERS})
+add_library(FrameAligner STATIC ${SOURCE} ${HEADERS})
+
+target_link_libraries(FrameAligner ${FrameAligner_LIBRARIES})
 
 target_compile_features(FrameAligner PUBLIC cxx_std_11)
-
 
 if(APPLE)
 # We need to add the path to the driver (libcuda.dylib) as an rpath, 
