@@ -6,6 +6,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 find_package(OpenCV 3.1 REQUIRED core imgproc imgcodecs videoio)
 find_package(FFTW)
 find_package(CUDA)
+find_package(TIFF)
 #find_package(dlib REQUIRED)
 
 if(APPLE)
@@ -50,7 +51,7 @@ set(HEADERS
 )
 
 set(FrameAligner_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR} ${OpenCV_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} PARENT_SCOPE)
-set(FrameAligner_LIBRARIES ${OpenCV_LIBS} ${EXTRA_LIBRARIES} ${FFTW_LIBRARIES} ${dlib_LIBRARIES} PARENT_SCOPE)
+set(FrameAligner_LIBRARIES ${OpenCV_LIBS} ${EXTRA_LIBRARIES} ${TIFF_LIBRARIES} ${FFTW_LIBRARIES} ${dlib_LIBRARIES} PARENT_SCOPE)
 add_library(FrameAligner OBJECT ${SOURCE} ${HEADERS})
 
 target_compile_features(FrameAligner PUBLIC cxx_std_11)

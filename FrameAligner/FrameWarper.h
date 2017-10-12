@@ -99,8 +99,8 @@ public:
    int n_dim = 2;
    std::vector<int> dims;
 
-   virtual void registerFrame(const cv::Mat& frame) {};
-   virtual void deregisterFrame(const cv::Mat& frame) {};
+   virtual int registerWorkingSpace(const std::vector<cv::Mat>& frames) { return 0; };
+   virtual void deregisterWorkingSpace(int space_id) {};
 
 protected:
 
@@ -108,7 +108,8 @@ protected:
    void computeSteepestDecentImages(const cv::Mat& frame);
    double computeHessianEntry(int pi, int pj);
    void computeHessian();
-
+   void computeJacobian(const cv::Mat& error_img, column_vector& jac);
+   
    virtual void setupReferenceInformation() {};
 
    cv::Mat Di;
@@ -137,7 +138,6 @@ public:
 protected:
 
    double computeErrorImage(cv::Mat& wimg, cv::Mat& error_img);
-   void computeJacobian(const cv::Mat& error_img, column_vector& jac);
 
    std::map<void*, cv::Mat> error_buffer;
    

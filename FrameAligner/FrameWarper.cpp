@@ -102,7 +102,7 @@ void CpuFrameWarper::warpImageIntensityPreserving(const cv::Mat& img, cv::Mat& w
          }
 }
 
-void CpuFrameWarper::computeJacobian(const cv::Mat& error_img, column_vector& jac)
+void AbstractFrameWarper::computeJacobian(const cv::Mat& error_img, column_vector& jac)
 {
    jac.set_size(nD * n_dim);
    std::fill(jac.begin(), jac.end(), 0);
@@ -110,29 +110,16 @@ void CpuFrameWarper::computeJacobian(const cv::Mat& error_img, column_vector& ja
    // we are ignoring stride here, ok as set up
    float* err_ptr = reinterpret_cast<float*>(error_img.data);
 
-   for (int i = 1; i < nD; i++)
+   for (int i = 0; i < nD; i++)
    {
-      int p0 = D_range[i - 1].begin;
-      int p1 = D_range[i - 1].end;
-      for (int p = p0; p < p1; p++)
+      int p0 = VI_dW_dp[i].first();
+      int p1 = VI_dW_dp[i].last();
+      for (int p = p0; p <= p1; p++)
       {
          jac(i*n_dim) += VI_dW_dp[i][p].x * err_ptr[p]; // x 
          jac(i*n_dim + 1) += VI_dW_dp[i][p].y * err_ptr[p]; // y
          if (n_dim == 3)
             jac(i*n_dim + 2) += VI_dW_dp[i][p].z * err_ptr[p]; // z        
-      }
-   }
-   for (int i = 0; i < (nD - 1); i++)
-   {
-      int p0 = D_range[i].begin;
-      int p1 = D_range[i].end;
-      for (int p = p0; p < p1; p++)
-      {
-         jac(i*n_dim) += VI_dW_dp[i][p].x * err_ptr[p]; // x
-         jac(i*n_dim + 1) += VI_dW_dp[i][p].y * err_ptr[p]; // y
-         if (n_dim == 3)
-            jac(i*n_dim + 2) += VI_dW_dp[i][p].z * err_ptr[p]; // z
-         
       }
    }
 }
@@ -144,7 +131,7 @@ double CpuFrameWarper::getError(const cv::Mat& frame, const std::vector<cv::Poin
    double err = computeErrorImage(warped_image, error_image);
    error_buffer[frame.data] = error_image;
    return err;
-}
+}  
 
 void CpuFrameWarper::getJacobian(const cv::Mat& frame, const std::vector<cv::Point3d>& D, column_vector& jac)
 {

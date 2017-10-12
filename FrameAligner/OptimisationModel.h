@@ -25,6 +25,7 @@ protected:
    std::shared_ptr<AbstractFrameWarper> warper;
    cv::Mat raw_frame;
    cv::Mat frame;
+   int working_space;
 };
 
 void D2col(const std::vector<cv::Point3d> &D, column_vector& col, int n_dim);

@@ -9,12 +9,26 @@
 class GpuFrame
 {
 public:
-   GpuFrame(cv::Mat frame, int nD);
+   GpuFrame(const cv::Mat& frame);
    ~GpuFrame();
 
    bool isSame(const cv::Mat& frame_) const { return (frame.data == frame_.data); }
 
    int getTextureId() { return texture; };
+
+   int3 size;
+   cv::Mat frame;
+   
+protected:
+   cudaArray *cu_array;
+   int texture;
+};
+
+class GpuWorkingSpace
+{
+public:
+   GpuWorkingSpace(int volume, int nD, bool calculate_jacobian_on_gpu);
+   ~GpuWorkingSpace();
 
    float* error_image;
    float* error_sq_image;
@@ -23,12 +37,9 @@ public:
    float3* jacobian;
    float3* D;
    int3 size;
-
-   cv::Mat frame;
    
 protected:
-   cudaArray *cu_array;
-   int texture;
+   bool calculate_jacobian_on_gpu;
 };
 
 struct GpuRange
@@ -41,7 +52,7 @@ class GpuReferenceInformation
 {
 public:
 
-   GpuReferenceInformation(const cv::Mat& reference, float3 offset, int nD, int range_max);
+   GpuReferenceInformation(const cv::Mat& reference, float3 offset, int nD, int range_max, bool compute_jacobian_on_gpu);
    ~GpuReferenceInformation();
 
    cv::Mat cvref;
@@ -51,9 +62,10 @@ public:
    float3 offset;
    int nD = 0;
    int range_max = 0;
+   bool compute_jacobian_on_gpu = false;
 };
 
-void computeWarp(GpuFrame* frame, GpuReferenceInformation* gpu_ref);
-void computeIntensityPreservingWarp(GpuFrame* frame, GpuReferenceInformation* gpu_ref);
-double computeError(GpuFrame* frame, GpuReferenceInformation* gpu_ref);
-std::vector<float3> computeJacobian(GpuFrame* frame, GpuReferenceInformation* gpu_ref);
+void computeWarp(GpuFrame* frame, GpuWorkingSpace* w, GpuReferenceInformation* gpu_ref);
+void computeIntensityPreservingWarp(GpuFrame* frame, GpuWorkingSpace* w, GpuReferenceInformation* gpu_ref);
+double computeError(GpuFrame* frame, GpuWorkingSpace* w, GpuReferenceInformation* gpu_ref);
+std::vector<float3> computeJacobianGpu(GpuFrame* frame, GpuWorkingSpace* w, GpuReferenceInformation* gpu_ref);

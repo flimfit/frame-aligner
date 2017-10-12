@@ -281,7 +281,7 @@ __global__ void computeJacobian(float* error_img, float3* __restrict__ jac_, flo
 }
 
 
-GpuFrame::GpuFrame(cv::Mat frame_, int nD)
+GpuFrame::GpuFrame(const cv::Mat& frame_)
 {
    auto tex_manager = GpuTextureManager::instance();
    texture = tex_manager->getTextureId();
@@ -316,14 +316,8 @@ GpuFrame::GpuFrame(cv::Mat frame_, int nD)
 
    // Bind the array to the texture
    checkCudaErrors(cudaBindTextureToArray(&tex, cu_array, &channelDesc));
-
-   checkCudaErrors(cudaMalloc((void**) &error_sum, 1024 * sizeof(float)));
-   checkCudaErrors(cudaMalloc((void**) &error_image, volume*sizeof(float)));
-   checkCudaErrors(cudaMalloc((void**) &error_sq_image, volume*sizeof(float)));
-   checkCudaErrors(cudaMalloc((void**) &mask, volume*sizeof(uint16_t)));
-   checkCudaErrors(cudaMalloc((void**) &jacobian, 3*volume*sizeof(float3)));
-   checkCudaErrors(cudaMalloc((void**) &D, nD*sizeof(float3)));
 }
+
 
 GpuFrame::~GpuFrame()
 {
@@ -333,66 +327,91 @@ GpuFrame::~GpuFrame()
 
    auto tex_manager = GpuTextureManager::instance();
    tex_manager->returnTextureId(texture);
+}
 
+
+GpuWorkingSpace::GpuWorkingSpace(int volume, int nD, bool calculate_jacobian_on_gpu) : 
+   calculate_jacobian_on_gpu(calculate_jacobian_on_gpu)
+{
+   checkCudaErrors(cudaMalloc((void**) &error_sum, 1024 * sizeof(float)));
+   checkCudaErrors(cudaMalloc((void**) &error_image, volume*sizeof(float)));
+   checkCudaErrors(cudaMalloc((void**) &error_sq_image, volume*sizeof(float)));
+   checkCudaErrors(cudaMalloc((void**) &mask, volume*sizeof(uint16_t)));
+   checkCudaErrors(cudaMalloc((void**) &D, nD*sizeof(float3)));
+
+   if (calculate_jacobian_on_gpu)   
+      checkCudaErrors(cudaMalloc((void**) &jacobian, 3*volume*sizeof(float3)));
+}
+
+GpuWorkingSpace::~GpuWorkingSpace()
+{
    checkCudaErrors(cudaFree(error_sum));
    checkCudaErrors(cudaFree(error_image));
    checkCudaErrors(cudaFree(mask));
    checkCudaErrors(cudaFree(error_sq_image));
-   checkCudaErrors(cudaFree(jacobian));
    checkCudaErrors(cudaFree(D));
+
+   if (calculate_jacobian_on_gpu)
+      checkCudaErrors(cudaFree(jacobian));
 }
 
 
-GpuReferenceInformation::GpuReferenceInformation(const cv::Mat& ref_, float3 offset, int nD, int range_max) :
-   offset(offset), nD(nD), range_max(range_max)
+GpuReferenceInformation::GpuReferenceInformation(const cv::Mat& ref_, float3 offset, int nD, int range_max, bool compute_jacobian_on_gpu) :
+   offset(offset), nD(nD), range_max(range_max), compute_jacobian_on_gpu(compute_jacobian_on_gpu)
 {
    size_t n_px = ref_.size[0] * ref_.size[1] * ref_.size[2];
 
    cvref = ref_;
 
-   checkCudaErrors(cudaMalloc((void**) &reference, n_px * sizeof(float)));
-   checkCudaErrors(cudaMalloc((void**) &VI_dW_dp, range_max * nD * sizeof(float3)));
-   checkCudaErrors(cudaMalloc((void**) &range, nD * sizeof(GpuRange)));
+   if (compute_jacobian_on_gpu)
+   {
+      checkCudaErrors(cudaMalloc((void**) &VI_dW_dp, range_max * nD * sizeof(float3)));
+      checkCudaErrors(cudaMalloc((void**) &range, nD * sizeof(GpuRange)));   
+   }
 
+   checkCudaErrors(cudaMalloc((void**) &reference, n_px * sizeof(float)));
    checkCudaErrors(cudaMemcpy(reference, ref_.data, n_px * sizeof(float), cudaMemcpyHostToDevice));
 }
 
 GpuReferenceInformation::~GpuReferenceInformation()
 {
-   checkCudaErrors(cudaFree(VI_dW_dp));
-   checkCudaErrors(cudaFree(range));
+   if (compute_jacobian_on_gpu)
+   {
+      checkCudaErrors(cudaFree(VI_dW_dp));
+      checkCudaErrors(cudaFree(range));   
+   }
    checkCudaErrors(cudaFree(reference));
 }
 
 
-void computeWarp(GpuFrame* frame, GpuReferenceInformation* gpu_ref)
+void computeWarp(GpuFrame* frame, GpuWorkingSpace* w, GpuReferenceInformation* gpu_ref)
 {
    auto size = frame->size;
    dim3 dimBlock(32, 32, 1);
    dim3 dimGrid(size.x / 32, size.y / 32, size.z);
 
    int id = frame->getTextureId();
-   warp<<<dimGrid, dimBlock, 0>>>(id, frame->size, gpu_ref->offset, frame->error_image, gpu_ref->nD, frame->D);
+   warp<<<dimGrid, dimBlock, 0>>>(id, frame->size, gpu_ref->offset, w->error_image, gpu_ref->nD, w->D);
    getLastCudaError("Kernel execution failed [ warp ]");
 }
 
 
-void computeIntensityPreservingWarp(GpuFrame* frame, GpuReferenceInformation* gpu_ref)
+void computeIntensityPreservingWarp(GpuFrame* frame, GpuWorkingSpace* w, GpuReferenceInformation* gpu_ref)
 {
    auto size = frame->size;
    dim3 dimBlock(32, 32, 1);
    dim3 dimGrid(size.x / 32, size.y / 32, size.z);
 
-   cudaMemset(frame->error_image, 0, size.x * size.y * size.z * sizeof(float));
-   cudaMemset(frame->mask, 0, size.x * size.y * size.z * sizeof(uint16_t));
+   cudaMemset(w->error_image, 0, size.x * size.y * size.z * sizeof(float));
+   cudaMemset(w->mask, 0, size.x * size.y * size.z * sizeof(uint16_t));
    
    int id = frame->getTextureId();
-   warpIntensityPreserving<<<dimGrid, dimBlock, 0>>>(id, frame->size, gpu_ref->offset, frame->error_image, frame->mask, gpu_ref->nD, frame->D);
+   warpIntensityPreserving<<<dimGrid, dimBlock, 0>>>(id, frame->size, gpu_ref->offset, w->error_image, w->mask, gpu_ref->nD, w->D);
    getLastCudaError("Kernel execution failed [ warpIntensityPreserving ]");
 }
 
 
-double computeError(GpuFrame* frame, GpuReferenceInformation* gpu_ref)
+double computeError(GpuFrame* frame, GpuWorkingSpace* w, GpuReferenceInformation* gpu_ref)
 {
    auto size = frame->size;
    int volume = size.x * size.y * size.z;
@@ -401,16 +420,16 @@ double computeError(GpuFrame* frame, GpuReferenceInformation* gpu_ref)
    dim3 dimGrid(size.x / 32, size.y / 32, size.z);
 
    int id = frame->getTextureId();
-   warpAndGetError<<<dimGrid, dimBlock, 0>>>(id, frame->size, gpu_ref->offset, gpu_ref->reference, frame->error_image, frame->error_sq_image, gpu_ref->nD, frame->D);
+   warpAndGetError<<<dimGrid, dimBlock, 0>>>(id, frame->size, gpu_ref->offset, gpu_ref->reference, w->error_image, w->error_sq_image, gpu_ref->nD, w->D);
    getLastCudaError("Kernel execution failed [ reduceSum ]");
 
    const int block_size = 512;
    int n_block = 1; //volume / (block_size * 2);
-   reduceSum<block_size><<<dim3(1,1,1), dim3(block_size,1,1), block_size * sizeof(float)>>> (frame->error_sq_image, frame->error_sum, volume);
+   reduceSum<block_size><<<dim3(1,1,1), dim3(block_size,1,1), block_size * sizeof(float)>>> (w->error_sq_image, w->error_sum, volume);
    getLastCudaError("Kernel execution failed [ reduceSum ]");
 
    std::vector<float> error_sum(n_block);
-   checkCudaErrors(cudaMemcpy(error_sum.data(), frame->error_sum, n_block*sizeof(float), cudaMemcpyDeviceToHost));
+   checkCudaErrors(cudaMemcpy(error_sum.data(), w->error_sum, n_block*sizeof(float), cudaMemcpyDeviceToHost));
 
    for(int i=1; i<n_block; i++)
       error_sum[0] += error_sum[i];
@@ -418,7 +437,7 @@ double computeError(GpuFrame* frame, GpuReferenceInformation* gpu_ref)
    return error_sum[0];
 }
 
-std::vector<float3> computeJacobian(GpuFrame* frame, GpuReferenceInformation* gpu_ref)
+std::vector<float3> computeJacobianGpu(GpuFrame* frame, GpuWorkingSpace* w, GpuReferenceInformation* gpu_ref)
 {  
    int range_max = gpu_ref->range_max;
 
@@ -426,7 +445,7 @@ std::vector<float3> computeJacobian(GpuFrame* frame, GpuReferenceInformation* gp
    int n_block = (range_max + block_size - 1) / block_size;
 
    int id = frame->getTextureId();
-   computeJacobian<<<n_block, block_size, 0>>>(frame->error_image, frame->jacobian,
+   computeJacobian<<<n_block, block_size, 0>>>(w->error_image, w->jacobian,
       gpu_ref->VI_dW_dp, gpu_ref->nD, range_max, gpu_ref->range);
    
    getLastCudaError("Kernel execution failed [ computeJacobian ]");
@@ -437,11 +456,11 @@ std::vector<float3> computeJacobian(GpuFrame* frame, GpuReferenceInformation* gp
    {
       int n_block = 1;
       const int block_size = 512;
-      reduceSum<block_size><<<n_block, block_size, block_size * sizeof(float3)>>> ((f3*)frame->jacobian + i * range_max, (f3*)frame->error_sum, range_max);
+      reduceSum<block_size><<<n_block, block_size, block_size * sizeof(float3)>>> ((f3*)w->jacobian + i * range_max, (f3*)w->error_sum, range_max);
       getLastCudaError("Kernel execution failed [ reduceSum ]");   
       
       std::vector<float3> jac_sum(n_block);
-      checkCudaErrors(cudaMemcpy(jac_sum.data(), frame->error_sum, n_block*sizeof(float3), cudaMemcpyDeviceToHost));   
+      checkCudaErrors(cudaMemcpy(jac_sum.data(), w->error_sum, n_block*sizeof(float3), cudaMemcpyDeviceToHost));   
       jac_out[i] = jac_sum[0];
    }   
 

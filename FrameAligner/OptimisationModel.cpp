@@ -6,14 +6,12 @@ warper(warper),
 raw_frame(raw_frame),
 frame(frame)
 {
-   warper->registerFrame(frame);
-   warper->registerFrame(raw_frame);
+   working_space = warper->registerWorkingSpace({ frame, raw_frame });
 }
 
 OptimisationModel::~OptimisationModel()
 {
-   warper->deregisterFrame(frame);
-   warper->deregisterFrame(raw_frame);
+   warper->deregisterWorkingSpace(working_space);
 }
 
 void D2col(const std::vector<cv::Point3d> &D, column_vector& col, int n_dim)
@@ -55,9 +53,7 @@ double OptimisationModel::operator() (const column_vector& x) const
 
    double rms_error = warper->getError(frame, D);
 
-
-
-
+   //std::cout << "E: " << rms_error << "\n";
    return rms_error;
 }
 
