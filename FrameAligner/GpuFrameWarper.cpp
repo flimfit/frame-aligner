@@ -22,7 +22,7 @@ int GpuFrameWarper::registerWorkingSpace(const std::vector<cv::Mat>& new_frames)
    if (new_frames.empty())
       throw std::runtime_error("Must have at least one frame");
 
-   working_space[id] = std::make_shared<GpuWorkingSpace>(area(new_frames[0]), nD, compute_jacobian_on_gpu);
+   working_space[id] = std::make_shared<GpuWorkingSpace>(area(new_frames[0]), nD, range_max, compute_jacobian_on_gpu);
    for(auto& f : new_frames)
    {
       frames[f.data] = std::make_shared<GpuFrame>(f);
@@ -66,7 +66,7 @@ void GpuFrameWarper::setupReferenceInformation()
    offset.y = image_params.interline_duration / stack_duration;
    offset.z = image_params.frame_duration / stack_duration;
 
-   int range_max = std::max_element(VI_dW_dp.begin(), VI_dW_dp.end(), [](auto& a, auto& b) { return a.size() < b.size(); })->size();
+   range_max = std::max_element(VI_dW_dp.begin(), VI_dW_dp.end(), [](auto& a, auto& b) { return a.size() < b.size(); })->size();
 
    gpu_reference = std::make_unique<GpuReferenceInformation>(reference, offset, nD, range_max, compute_jacobian_on_gpu);
 
@@ -166,6 +166,16 @@ void GpuFrameWarper::getJacobian(const cv::Mat& frame, const std::vector<cv::Poi
       checkCudaErrors(cudaMemcpy(error_image.data, w->error_image, dims[X] * dims[Y] * dims[Z] * sizeof(float), cudaMemcpyDeviceToHost));
       computeJacobian(error_image, jac);   
    }
+
+   /*
+   std::cout << std::scientific << std::setw(5) << std::setprecision(3) << std::showpos;
+   for(int i=0; i<jac.size(); i++)
+   {
+      if (i % 3 == 0) std::cout << "\n     > ";
+      std::cout << jac(i) << "  |  ";
+   }
+   std::cout << "\n";
+   */
 }
 
 

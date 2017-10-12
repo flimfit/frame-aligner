@@ -53,7 +53,7 @@ void applyZFilter(cv::Mat m, cv::Mat& out, std::array<float, 3> filter, std::arr
       for (int x = 0; x < m.size[X]; x++)
       {
          out.at<float>(0, y, x) = edge_filter1[0] * m.at<float>(0, y, x) + edge_filter1[1] * m.at<float>(1, y, x);
-         out.at<float>(m.size[Z] - 1, y, 0) = edge_filter2[0] * m.at<float>(m.size[Z] - 1, y, 0) + edge_filter2[1] * m.at<float>(m.size[Z] - 2, y, 0);
+         out.at<float>(m.size[Z] - 1, y, x) = edge_filter2[0] * m.at<float>(m.size[Z] - 1, y, x) + edge_filter2[1] * m.at<float>(m.size[Z] - 2, y, x);
       }
 }
 

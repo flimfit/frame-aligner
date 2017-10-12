@@ -39,4 +39,6 @@ protected:
 
    bool compute_jacobian_on_gpu = false;
 
+   int range_max;
+
 };

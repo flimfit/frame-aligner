@@ -114,7 +114,7 @@ void AbstractFrameWarper::computeJacobian(const cv::Mat& error_img, column_vecto
    {
       int p0 = VI_dW_dp[i].first();
       int p1 = VI_dW_dp[i].last();
-      for (int p = p0; p <= p1; p++)
+      for (int p = p0; p < p1; p++)
       {
          jac(i*n_dim) += VI_dW_dp[i][p].x * err_ptr[p]; // x 
          jac(i*n_dim + 1) += VI_dW_dp[i][p].y * err_ptr[p]; // y

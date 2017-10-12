@@ -312,7 +312,15 @@ GpuFrame::GpuFrame(const cv::Mat& frame_)
    cudaExtent extent = make_cudaExtent(size.x, size.y, size.z);
    size_t copy_size = volume * sizeof(float);
    checkCudaErrors(cudaMalloc3DArray(&cu_array, &channelDesc, extent));
-   checkCudaErrors(cudaMemcpyToArray(cu_array, 0, 0, frame_cpy.data, copy_size, cudaMemcpyHostToDevice));
+   
+   cudaMemcpy3DParms copy_params = {0};
+   copy_params.srcPtr = make_cudaPitchedPtr((void*) frame_cpy.data, size.x * sizeof(float), size.x, size.y);
+   copy_params.dstArray = cu_array;
+   copy_params.extent = extent;
+   copy_params.kind = cudaMemcpyHostToDevice;
+   checkCudaErrors(cudaMemcpy3D(&copy_params));
+   
+   //checkCudaErrors(cudaMemcpyToArray(cu_array, 0, 0, frame_cpy.data, copy_size, cudaMemcpyHostToDevice));
 
    // Bind the array to the texture
    checkCudaErrors(cudaBindTextureToArray(&tex, cu_array, &channelDesc));
@@ -330,7 +338,7 @@ GpuFrame::~GpuFrame()
 }
 
 
-GpuWorkingSpace::GpuWorkingSpace(int volume, int nD, bool calculate_jacobian_on_gpu) : 
+GpuWorkingSpace::GpuWorkingSpace(int volume, int nD, int range_max, bool calculate_jacobian_on_gpu) : 
    calculate_jacobian_on_gpu(calculate_jacobian_on_gpu)
 {
    checkCudaErrors(cudaMalloc((void**) &error_sum, 1024 * sizeof(float)));
@@ -340,7 +348,7 @@ GpuWorkingSpace::GpuWorkingSpace(int volume, int nD, bool calculate_jacobian_on_
    checkCudaErrors(cudaMalloc((void**) &D, nD*sizeof(float3)));
 
    if (calculate_jacobian_on_gpu)   
-      checkCudaErrors(cudaMalloc((void**) &jacobian, 3*volume*sizeof(float3)));
+      checkCudaErrors(cudaMalloc((void**) &jacobian, range_max * nD * sizeof(float3)));
 }
 
 GpuWorkingSpace::~GpuWorkingSpace()

@@ -27,7 +27,7 @@ protected:
 class GpuWorkingSpace
 {
 public:
-   GpuWorkingSpace(int volume, int nD, bool calculate_jacobian_on_gpu);
+   GpuWorkingSpace(int volume, int nD, int range_max, bool calculate_jacobian_on_gpu);
    ~GpuWorkingSpace();
 
    float* error_image;
