@@ -37,7 +37,8 @@ public:
    float3* jacobian;
    float3* D;
    int3 size;
-   
+   cudaStream_t stream;
+
 protected:
    bool calculate_jacobian_on_gpu;
 };

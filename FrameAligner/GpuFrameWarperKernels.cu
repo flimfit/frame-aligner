@@ -6,10 +6,23 @@
 #include <cuda_runtime_api.h>
 #include "helper_cuda.h"
 
+const int num_tex = 16;
 texture<float, 3, cudaReadModeElementType> tex0;
 texture<float, 3, cudaReadModeElementType> tex1;
 texture<float, 3, cudaReadModeElementType> tex2;
 texture<float, 3, cudaReadModeElementType> tex3;
+texture<float, 3, cudaReadModeElementType> tex4;
+texture<float, 3, cudaReadModeElementType> tex5;
+texture<float, 3, cudaReadModeElementType> tex6;
+texture<float, 3, cudaReadModeElementType> tex7;
+texture<float, 3, cudaReadModeElementType> tex8;
+texture<float, 3, cudaReadModeElementType> tex9;
+texture<float, 3, cudaReadModeElementType> tex10;
+texture<float, 3, cudaReadModeElementType> tex11;
+texture<float, 3, cudaReadModeElementType> tex12;
+texture<float, 3, cudaReadModeElementType> tex13;
+texture<float, 3, cudaReadModeElementType> tex14;
+texture<float, 3, cudaReadModeElementType> tex15;
 
 float3 operator+(const float3& a, const float3& b)
 {
@@ -88,6 +101,18 @@ texture<float, 3, cudaReadModeElementType>& getTexture(int id)
    case 1: return tex1;
    case 2: return tex2;
    case 3: return tex3;
+   case 4: return tex4;
+   case 5: return tex5;
+   case 6: return tex6;
+   case 7: return tex7;
+   case 8: return tex8;
+   case 9: return tex9;
+   case 10: return tex10;
+   case 11: return tex11;
+   case 12: return tex12;
+   case 13: return tex13;
+   case 14: return tex14;
+   case 15: return tex15;
    }
    throw std::runtime_error("Invalid texture reference");
 }
@@ -120,7 +145,7 @@ void GpuTextureManager::returnTextureId(int t)
 
 GpuTextureManager::GpuTextureManager()
 {
-   for (int i = 0; i < 4; i++)
+   for (int i = 0; i < num_tex; i++)
       free_textures.push_back(i);
 }
 
@@ -178,17 +203,26 @@ __device__ float getPoint(int tex_id, float3 p)
    p.y += 0.5f;
    p.z += 0.5f;
    
-   float v = 0;
-   if (tex_id == 0)
-      v = tex3D(tex0, p.x, p.y, p.z);
-   else if (tex_id == 1)
-      v = tex3D(tex1, p.x, p.y, p.z);
-   else if (tex_id == 2)
-      v = tex3D(tex2, p.x, p.y, p.z);
-   else if (tex_id == 3)
-      v = tex3D(tex3, p.x, p.y, p.z);
-      
-   return v;
+   switch(tex_id)
+   {
+   case 0: return tex3D(tex0, p.x, p.y, p.z);
+   case 1: return tex3D(tex1, p.x, p.y, p.z);
+   case 2: return tex3D(tex2, p.x, p.y, p.z);
+   case 3: return tex3D(tex3, p.x, p.y, p.z);
+   case 4: return tex3D(tex4, p.x, p.y, p.z);
+   case 5: return tex3D(tex5, p.x, p.y, p.z);
+   case 6: return tex3D(tex6, p.x, p.y, p.z);
+   case 7: return tex3D(tex7, p.x, p.y, p.z);
+   case 8: return tex3D(tex8, p.x, p.y, p.z);
+   case 9: return tex3D(tex9, p.x, p.y, p.z);
+   case 10: return tex3D(tex10, p.x, p.y, p.z);
+   case 11: return tex3D(tex11, p.x, p.y, p.z);
+   case 12: return tex3D(tex12, p.x, p.y, p.z);
+   case 13: return tex3D(tex13, p.x, p.y, p.z);
+   case 14: return tex3D(tex14, p.x, p.y, p.z);
+   case 15: return tex3D(tex15, p.x, p.y, p.z);   
+   }  
+   return 0;
 }
 
 
@@ -305,12 +339,10 @@ GpuFrame::GpuFrame(const cv::Mat& frame_)
    size.x = frame.size[2];
    size.y = frame.size[1];
    size.z = frame.size[0];
-   size_t volume = size.x * size.y * size.z;
 
    // Allocate array and copy image data
    cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<float>();
    cudaExtent extent = make_cudaExtent(size.x, size.y, size.z);
-   size_t copy_size = volume * sizeof(float);
    checkCudaErrors(cudaMalloc3DArray(&cu_array, &channelDesc, extent));
    
    cudaMemcpy3DParms copy_params = {0};
@@ -320,8 +352,6 @@ GpuFrame::GpuFrame(const cv::Mat& frame_)
    copy_params.kind = cudaMemcpyHostToDevice;
    checkCudaErrors(cudaMemcpy3D(&copy_params));
    
-   //checkCudaErrors(cudaMemcpyToArray(cu_array, 0, 0, frame_cpy.data, copy_size, cudaMemcpyHostToDevice));
-
    // Bind the array to the texture
    checkCudaErrors(cudaBindTextureToArray(&tex, cu_array, &channelDesc));
 }
@@ -349,6 +379,8 @@ GpuWorkingSpace::GpuWorkingSpace(int volume, int nD, int range_max, bool calcula
 
    if (calculate_jacobian_on_gpu)   
       checkCudaErrors(cudaMalloc((void**) &jacobian, range_max * nD * sizeof(float3)));
+
+   cudaStreamCreate(&stream);
 }
 
 GpuWorkingSpace::~GpuWorkingSpace()
@@ -361,6 +393,8 @@ GpuWorkingSpace::~GpuWorkingSpace()
 
    if (calculate_jacobian_on_gpu)
       checkCudaErrors(cudaFree(jacobian));
+
+   cudaStreamDestroy(stream);
 }
 
 
@@ -399,7 +433,7 @@ void computeWarp(GpuFrame* frame, GpuWorkingSpace* w, GpuReferenceInformation* g
    dim3 dimGrid(size.x / 32, size.y / 32, size.z);
 
    int id = frame->getTextureId();
-   warp<<<dimGrid, dimBlock, 0>>>(id, frame->size, gpu_ref->offset, w->error_image, gpu_ref->nD, w->D);
+   warp<<<dimGrid, dimBlock, 0, w->stream>>>(id, frame->size, gpu_ref->offset, w->error_image, gpu_ref->nD, w->D);
    getLastCudaError("Kernel execution failed [ warp ]");
 }
 
@@ -414,7 +448,7 @@ void computeIntensityPreservingWarp(GpuFrame* frame, GpuWorkingSpace* w, GpuRefe
    cudaMemset(w->mask, 0, size.x * size.y * size.z * sizeof(uint16_t));
    
    int id = frame->getTextureId();
-   warpIntensityPreserving<<<dimGrid, dimBlock, 0>>>(id, frame->size, gpu_ref->offset, w->error_image, w->mask, gpu_ref->nD, w->D);
+   warpIntensityPreserving<<<dimGrid, dimBlock, 0, w->stream>>>(id, frame->size, gpu_ref->offset, w->error_image, w->mask, gpu_ref->nD, w->D);
    getLastCudaError("Kernel execution failed [ warpIntensityPreserving ]");
 }
 
@@ -428,12 +462,12 @@ double computeError(GpuFrame* frame, GpuWorkingSpace* w, GpuReferenceInformation
    dim3 dimGrid(size.x / 32, size.y / 32, size.z);
 
    int id = frame->getTextureId();
-   warpAndGetError<<<dimGrid, dimBlock, 0>>>(id, frame->size, gpu_ref->offset, gpu_ref->reference, w->error_image, w->error_sq_image, gpu_ref->nD, w->D);
+   warpAndGetError<<<dimGrid, dimBlock, 0, w->stream>>>(id, frame->size, gpu_ref->offset, gpu_ref->reference, w->error_image, w->error_sq_image, gpu_ref->nD, w->D);
    getLastCudaError("Kernel execution failed [ reduceSum ]");
 
    const int block_size = 512;
    int n_block = 1; //volume / (block_size * 2);
-   reduceSum<block_size><<<dim3(1,1,1), dim3(block_size,1,1), block_size * sizeof(float)>>> (w->error_sq_image, w->error_sum, volume);
+   reduceSum<block_size><<<dim3(1,1,1), dim3(block_size,1,1), block_size * sizeof(float), w->stream>>> (w->error_sq_image, w->error_sum, volume);
    getLastCudaError("Kernel execution failed [ reduceSum ]");
 
    std::vector<float> error_sum(n_block);
@@ -453,7 +487,7 @@ std::vector<float3> computeJacobianGpu(GpuFrame* frame, GpuWorkingSpace* w, GpuR
    int n_block = (range_max + block_size - 1) / block_size;
 
    int id = frame->getTextureId();
-   computeJacobian<<<n_block, block_size, 0>>>(w->error_image, w->jacobian,
+   computeJacobian<<<n_block, block_size, 0, w->stream>>>(w->error_image, w->jacobian,
       gpu_ref->VI_dW_dp, gpu_ref->nD, range_max, gpu_ref->range);
    
    getLastCudaError("Kernel execution failed [ computeJacobian ]");
@@ -464,7 +498,7 @@ std::vector<float3> computeJacobianGpu(GpuFrame* frame, GpuWorkingSpace* w, GpuR
    {
       int n_block = 1;
       const int block_size = 512;
-      reduceSum<block_size><<<n_block, block_size, block_size * sizeof(float3)>>> ((f3*)w->jacobian + i * range_max, (f3*)w->error_sum, range_max);
+      reduceSum<block_size><<<n_block, block_size, block_size * sizeof(float3), w->stream>>> ((f3*)w->jacobian + i * range_max, (f3*)w->error_sum, range_max);
       getLastCudaError("Kernel execution failed [ reduceSum ]");   
       
       std::vector<float3> jac_sum(n_block);
