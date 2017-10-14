@@ -174,34 +174,19 @@ __device__ void warpReduce(T *sdata, unsigned int tid)
    if (blockSize >= 2) { if (tid < 1) { sdata[tid] += sdata[tid + 1]; } __syncthreads(); }
 }
 
-/*
-__global__ void computeJacobian()
-{
-   int x = threadIdx.x + blockDim.x * blockIdx.x;
-   if (x < range_max)
-   {
-      if (p <= range.end)
-         jac[x] = VI_dW_dp[x + range_max*i] * error_img[x + range.begin];
-      else
-         jac[x] = 0;
-   }
-}
-*/
-
 template <unsigned int blockSize>
 __global__ void jacobianReduceSum(f3 * g_odata, float* error_img, f3* __restrict__ VI_dW_dp, int n, GpuRange range) 
 {
    extern __shared__ f3 sdata2[];
 
    unsigned int tid = threadIdx.x;
-   unsigned int i = blockIdx.x * 2 * blockSize + tid;
-   unsigned int gridSize = blockSize * 2 * gridDim.x;
+   unsigned int i = blockIdx.x * blockSize + tid;
+   unsigned int gridSize = blockSize * gridDim.x;
 
    sdata2[tid] = 0.0f;
    while (i < n) 
    {
       sdata2[tid] += (VI_dW_dp[i] * error_img[i + range.begin]);
-      sdata2[tid] += (VI_dW_dp[i + blockSize] * error_img[i + blockSize + range.begin]);
       i += gridSize;
    }
    warpReduce<blockSize>(sdata2, tid);
@@ -326,10 +311,6 @@ __global__ void warpIntensityPreserving(int tex_id, int3 size, float3 offset, fl
 }
 
 
-
-
-
-
 GpuFrame::GpuFrame(const cv::Mat& frame_)
 {
    auto tex_manager = GpuTextureManager::instance();
@@ -390,8 +371,13 @@ GpuWorkingSpace::GpuWorkingSpace(int volume, int nD, int range_max)
    checkCudaErrors(cudaMalloc((void**) &mask, volume*sizeof(uint16_t)));
    checkCudaErrors(cudaMalloc((void**) &D, nD*sizeof(float3)));
    checkCudaErrors(cudaMallocHost((void**) &host_buffer, 10 * nD * sizeof(float3)));
-   
-   cudaStreamCreate(&stream);
+ 
+   const int n_stream = 4;
+   checkCudaErrors(cudaMalloc((void**) &VI_dW_dp, range_max * n_stream * sizeof(float3)));
+
+   stream.resize(n_stream);
+   for(auto& s : stream)
+      cudaStreamCreate(&s);
 }
 
 GpuWorkingSpace::~GpuWorkingSpace()
@@ -402,28 +388,28 @@ GpuWorkingSpace::~GpuWorkingSpace()
    checkCudaErrors(cudaFree(D));
    checkCudaErrors(cudaFreeHost(host_buffer));
 
-   cudaStreamDestroy(stream);
+   for(auto& s : stream)
+      cudaStreamDestroy(s);
 }
 
 
-GpuReferenceInformation::GpuReferenceInformation(const cv::Mat& ref_, float3 offset, int nD, int range_max, bool compute_jacobian_on_gpu) :
-   offset(offset), nD(nD), range_max(range_max), compute_jacobian_on_gpu(compute_jacobian_on_gpu)
+GpuReferenceInformation::GpuReferenceInformation(const cv::Mat& ref_, float3 offset, int nD, int range_max, bool stream_VI) :
+   offset(offset), nD(nD), range_max(range_max), stream_VI(stream_VI)
 {
    size_t n_px = ref_.size[0] * ref_.size[1] * ref_.size[2];
 
    cvref = ref_;
 
-   if (compute_jacobian_on_gpu)
-      checkCudaErrors(cudaMalloc((void**) &VI_dW_dp, range_max * nD * sizeof(float3)));
-
+   checkCudaErrors(cudaMallocHost((void**) &VI_dW_dp_host, range_max * nD * sizeof(float3)));
+   
    checkCudaErrors(cudaMalloc((void**) &reference, n_px * sizeof(float)));
    checkCudaErrors(cudaMemcpy(reference, ref_.data, n_px * sizeof(float), cudaMemcpyHostToDevice));
 }
 
 GpuReferenceInformation::~GpuReferenceInformation()
 {
-   if (compute_jacobian_on_gpu)
-      checkCudaErrors(cudaFree(VI_dW_dp));
+   if (VI_dW_dp_host)
+      checkCudaErrors(cudaFreeHost(VI_dW_dp_host));
    checkCudaErrors(cudaFree(reference));
 }
 
@@ -435,7 +421,7 @@ void computeWarp(GpuFrame* frame, GpuWorkingSpace* w, GpuReferenceInformation* g
    dim3 dimGrid(size.x / 32, size.y / 32, size.z);
 
    int id = frame->getTextureId();
-   warp<<<dimGrid, dimBlock, 0, w->stream>>>(id, frame->size, gpu_ref->offset, w->error_image, gpu_ref->nD, w->D);
+   warp<<<dimGrid, dimBlock, 0, w->stream[0]>>>(id, frame->size, gpu_ref->offset, w->error_image, gpu_ref->nD, w->D);
    getLastCudaError("Kernel execution failed [ warp ]");
 }
 
@@ -450,7 +436,7 @@ void computeIntensityPreservingWarp(GpuFrame* frame, GpuWorkingSpace* w, GpuRefe
    cudaMemset(w->mask, 0, size.x * size.y * size.z * sizeof(uint16_t));
    
    int id = frame->getTextureId();
-   warpIntensityPreserving<<<dimGrid, dimBlock, 0, w->stream>>>(id, frame->size, gpu_ref->offset, w->error_image, w->mask, gpu_ref->nD, w->D);
+   warpIntensityPreserving<<<dimGrid, dimBlock, 0, w->stream[0]>>>(id, frame->size, gpu_ref->offset, w->error_image, w->mask, gpu_ref->nD, w->D);
    getLastCudaError("Kernel execution failed [ warpIntensityPreserving ]");
 }
 
@@ -464,12 +450,12 @@ double computeError(GpuFrame* frame, GpuWorkingSpace* w, GpuReferenceInformation
    dim3 dimGrid(size.x / 32, size.y / 32, size.z);
 
    int id = frame->getTextureId();
-   warpAndGetError<<<dimGrid, dimBlock, 0, w->stream>>>(id, frame->size, gpu_ref->offset, gpu_ref->reference, w->error_image, gpu_ref->nD, w->D);
+   warpAndGetError<<<dimGrid, dimBlock, 0, w->stream[0]>>>(id, frame->size, gpu_ref->offset, gpu_ref->reference, w->error_image, gpu_ref->nD, w->D);
    getLastCudaError("Kernel execution failed [ reduceSum ]");
 
    const int block_size = 512;
    int n_block = 1; //volume / (block_size * 2);
-   reduceSumSquared<block_size><<<dim3(1,1,1), dim3(block_size,1,1), block_size * sizeof(float), w->stream>>> (w->error_image, w->error_sum, volume);
+   reduceSumSquared<block_size><<<dim3(1,1,1), dim3(block_size,1,1), block_size * sizeof(float), w->stream[0]>>> (w->error_image, w->error_sum, volume);
    getLastCudaError("Kernel execution failed [ reduceSum ]");
 
    checkCudaErrors(cudaMemcpy(w->host_buffer, w->error_sum, n_block*sizeof(float), cudaMemcpyDeviceToHost));
@@ -485,24 +471,40 @@ std::vector<float3> computeJacobianGpu(GpuFrame* frame, GpuWorkingSpace* w, GpuR
 {  
    int range_max = gpu_ref->range_max;
 
-   std::vector<float3> jac_out(gpu_ref->nD);
-
    int n_block = 1;
    const int block_size = 512;
-   for(int i=0; i<gpu_ref->nD; i++)
-   {
-      auto range = gpu_ref->range[i];
-      int n = range.end - range.begin;
-      jacobianReduceSum<block_size><<<n_block, block_size, block_size * sizeof(float3), w->stream>>> 
-         ((f3*)w->error_sum + i * n_block, w->error_image, (f3*)gpu_ref->VI_dW_dp + i * range_max, n, range);
-      getLastCudaError("Kernel execution failed [ reduceSum ]");  
-   }   
 
    int nD = gpu_ref->nD;
+
+   int idx = 0;
+   while(idx < nD)
+   {
+      int stream_max = std::min((int)(w->stream.size()), nD - idx);
+      if (gpu_ref->stream_VI)
+         for(int s=0; s<stream_max; s++)
+            checkCudaErrors(cudaMemcpyAsync(w->VI_dW_dp + s * range_max, gpu_ref->VI_dW_dp_host + (idx + s) * range_max, 
+               range_max * sizeof(float3), cudaMemcpyHostToDevice, w->stream[s]));      
+
+      for(int s=0; s<stream_max; s++)
+      {
+         auto range = gpu_ref->range[idx + s];
+         float3* VI = w->VI_dW_dp + range_max * (gpu_ref->stream_VI ? s : (idx + s));
+         jacobianReduceSum<block_size><<<n_block, block_size, block_size * sizeof(float3), w->stream[s]>>> 
+            (((f3*) w->error_sum) + (idx + s) * n_block, w->error_image, (f3*) VI, range.end-range.begin, range);
+         getLastCudaError("Kernel execution failed [ jacobianReduceSum ]");  
+            
+      }
+      idx += w->stream.size();
+   }
+
+   for(int i=0; i<w->stream.size(); i++)
+      cudaStreamSynchronize(w->stream[i]);
+
    float3* buffer = (float3*) w->host_buffer;
    checkCudaErrors(cudaMemcpy(buffer, w->error_sum, n_block * nD * sizeof(float3), cudaMemcpyDeviceToHost));   
 
-   int idx = 0;
+   std::vector<float3> jac_out(gpu_ref->nD);
+   idx = 0;
    for(int i=0; i<nD; i++)
       for(int j=0; j<n_block; j++)
          jac_out[i] += buffer[idx++];

@@ -59,14 +59,14 @@ void GpuFrameWarper::setupReferenceInformation()
    checkCudaErrors(cudaMemGetInfo(&free_mem, &total_mem));
    std::cout << "GPU Memory (total/free) : " << (total_mem / (1024 * 1024)) << " / " << (free_mem / (1024 * 1024)) << " Mb\n";
 
-   size_t required_for_jacobian = 10    * 4 * area(reference);
-   compute_jacobian_on_gpu = (free_mem > required_for_jacobian);
+   size_t required_for_jacobian = 10 * 4 * area(reference);
+   stream_VI = (free_mem < required_for_jacobian);
 
-   if (compute_jacobian_on_gpu)
-      std::cout << "Computing Jacobian on GPU\n";
-   else
-      std::cout << "Computing Jacobian on CPU (needed " << required_for_jacobian / (1024 * 1024) << " Mb)\n";
+   stream_VI = true;
 
+   if (stream_VI)
+      std::cout << "Streaming Jacobian (needed " << required_for_jacobian / (1024 * 1024) << " Mb)\n";
+      
    float3 offset;
    double stack_duration = dims[Z] * image_params.frame_duration;
    offset.x = image_params.pixel_duration / stack_duration;
@@ -75,36 +75,34 @@ void GpuFrameWarper::setupReferenceInformation()
 
    range_max = std::max_element(VI_dW_dp.begin(), VI_dW_dp.end(), [](auto& a, auto& b) { return a.size() < b.size(); })->size();
 
-   gpu_reference = std::make_unique<GpuReferenceInformation>(reference, offset, nD, range_max, compute_jacobian_on_gpu);
+   gpu_reference = std::make_unique<GpuReferenceInformation>(reference, offset, nD, range_max, stream_VI);
 
-   if (compute_jacobian_on_gpu)
-   {
-      float3 *VI_dW_dp_host;
-      checkCudaErrors(cudaMallocHost((void**) &VI_dW_dp_host, range_max * nD * sizeof(float3)));
+   float3* VI_dW_dp_host = gpu_reference->VI_dW_dp_host;
+   gpu_reference->range.resize(nD);
    
-      for (int i = 0; i < nD; i++)
+   for (int i = 0; i < nD; i++)
+   {
+      auto& dp = VI_dW_dp[i];
+      int p0 = dp.first();
+      for (int p = 0; p < dp.size(); p++)
       {
-         auto& dp = VI_dW_dp[i];
-         int p0 = dp.first();
-         for (int p = 0; p < dp.size(); p++)
-         {
-            VI_dW_dp_host[i*range_max + p].x = dp[p + p0].x;
-            VI_dW_dp_host[i*range_max + p].y = dp[p + p0].y;
-            VI_dW_dp_host[i*range_max + p].z = dp[p + p0].z;
-         }
-      }   
-
-      gpu_reference->range.resize(nD);
-      for(int i=0; i<nD; i++)
-      {
-         gpu_reference->range[i].begin = VI_dW_dp[i].first();
-         gpu_reference->range[i].end = VI_dW_dp[i].last();
+         VI_dW_dp_host[i*range_max + p].x = dp[p + p0].x;
+         VI_dW_dp_host[i*range_max + p].y = dp[p + p0].y;
+         VI_dW_dp_host[i*range_max + p].z = dp[p + p0].z;
       }
+      gpu_reference->range[i].begin = dp.first();
+      gpu_reference->range[i].end = dp.last();   
 
-      checkCudaErrors(cudaMemcpy(gpu_reference->VI_dW_dp, VI_dW_dp_host, range_max * nD * sizeof(float3), cudaMemcpyHostToDevice));
+   }   
+    
+   /*
+   if (!stream_VI)
+   {
+      checkCudaErrors(cudaMemcpy(gpu_reference->VI_dW_dp, VI_dW_dp_host, range_max * nD * sizeof(float3), cudaMemcpyHostToDevice));      
       checkCudaErrors(cudaFreeHost(VI_dW_dp_host));
+      VI_dW_dp_host = nullptr;
    }
-
+   */
 
 }
 
@@ -154,7 +152,7 @@ void GpuFrameWarper::getJacobian(const cv::Mat& frame, const std::vector<cv::Poi
    auto w = getWorkingSpace(frame);
    //auto Df = D2float3(D); => same as before
 
-   if (compute_jacobian_on_gpu)
+   //if (compute_jacobian_on_gpu)
    {
       std::vector<float3> jacv = computeJacobianGpu(f.get(), w.get(), gpu_reference.get());
       
@@ -167,12 +165,12 @@ void GpuFrameWarper::getJacobian(const cv::Mat& frame, const std::vector<cv::Poi
                jac(i*n_dim+2) = jacv[i].z;
          }
    }
-   else
-   {
-      cv::Mat error_image(dims, CV_32F);
-      checkCudaErrors(cudaMemcpy(error_image.data, w->error_image, dims[X] * dims[Y] * dims[Z] * sizeof(float), cudaMemcpyDeviceToHost));
-      computeJacobian(error_image, jac);   
-   }
+   //else
+   //{
+   //   cv::Mat error_image(dims, CV_32F);
+   //   checkCudaErrors(cudaMemcpy(error_image.data, w->error_image, dims[X] * dims[Y] * dims[Z] * sizeof(float), cudaMemcpyDeviceToHost));
+   //   computeJacobian(error_image, jac);   
+   //}
 
 
    /*
@@ -181,14 +179,16 @@ void GpuFrameWarper::getJacobian(const cv::Mat& frame, const std::vector<cv::Poi
    checkCudaErrors(cudaMemcpy(error_image.data, w->error_image, dims[X] * dims[Y] * dims[Z] * sizeof(float), cudaMemcpyDeviceToHost));
    computeJacobian(error_image, jac2);   
 
+   std::cout << "=============\n";
    std::cout << std::scientific << std::setw(5) << std::setprecision(3) << std::showpos;
    for(int i=0; i<jac.size(); i++)
    {
-      if (i % 3 == 0) std::cout << "\n     > ";
-      std::cout << (jac(i) - jac2(i)) << "  |  ";
+      if (i % 3 == 0) std::cout << "\n     > " << i /3 << "  |  ";
+      std::cout << "(" << jac(i) - jac2(i) << ")  |  ";
    }
    std::cout << "\n";
    */
+   
 }
 
 

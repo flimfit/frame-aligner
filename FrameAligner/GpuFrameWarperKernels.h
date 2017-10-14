@@ -30,12 +30,14 @@ public:
    GpuWorkingSpace(int volume, int nD, int range_max);
    ~GpuWorkingSpace();
 
+
+   float3 *VI_dW_dp;   
    float* error_image;
    float* error_sum;
    uint16_t* mask;
    float3* D;
    int3 size;
-   cudaStream_t stream;
+   std::vector<cudaStream_t> stream;
    float* host_buffer;
 };
 
@@ -54,12 +56,12 @@ public:
 
    cv::Mat cvref;
    float* reference = nullptr;
-   float3 *VI_dW_dp = nullptr;
+   float3 *VI_dW_dp_host = nullptr;
    std::vector<GpuRange> range;
    float3 offset;
    int nD = 0;
    int range_max = 0;
-   bool compute_jacobian_on_gpu = false;
+   bool stream_VI = false;
 };
 
 void computeWarp(GpuFrame* frame, GpuWorkingSpace* w, GpuReferenceInformation* gpu_ref);

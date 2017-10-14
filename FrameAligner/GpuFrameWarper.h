@@ -40,7 +40,7 @@ protected:
    std::shared_ptr<GpuWorkingSpace> getWorkingSpace(const cv::Mat& frame);
    std::vector<float3> D2float3(const std::vector<cv::Point3d>& D);
 
-   bool compute_jacobian_on_gpu = false;
+   bool stream_VI = false;
 
    int range_max;
 
