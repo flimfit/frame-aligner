@@ -3,6 +3,7 @@
 #include <map>
 #include <utility>
 #include <memory>
+#include <mutex>
 
 #include <cuda_runtime.h>
 
@@ -42,5 +43,7 @@ protected:
    bool compute_jacobian_on_gpu = false;
 
    int range_max;
+
+   std::mutex mutex;
 
 };

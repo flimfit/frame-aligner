@@ -21,12 +21,13 @@ bool GpuFrameWarper::hasSupportedGpu()
 
 int GpuFrameWarper::registerWorkingSpace(const std::vector<cv::Mat>& new_frames)
 {
+   std::lock_guard<std::mutex> lk(mutex);
    int id = next_id++;
 
    if (new_frames.empty())
       throw std::runtime_error("Must have at least one frame");
 
-   working_space[id] = std::make_shared<GpuWorkingSpace>(area(new_frames[0]), nD, range_max, compute_jacobian_on_gpu);
+   working_space[id] = std::make_shared<GpuWorkingSpace>(area(new_frames[0]), nD, range_max);
    for(auto& f : new_frames)
    {
       frames[f.data] = std::make_shared<GpuFrame>(f);
@@ -38,6 +39,8 @@ int GpuFrameWarper::registerWorkingSpace(const std::vector<cv::Mat>& new_frames)
 
 void GpuFrameWarper::deregisterWorkingSpace(int id)
 {
+   std::lock_guard<std::mutex> lk(mutex);
+   
    working_space.erase(id);
 
    for(auto it = frame_space.begin(); it != frame_space.end();)
@@ -56,7 +59,7 @@ void GpuFrameWarper::setupReferenceInformation()
    checkCudaErrors(cudaMemGetInfo(&free_mem, &total_mem));
    std::cout << "GPU Memory (total/free) : " << (total_mem / (1024 * 1024)) << " / " << (free_mem / (1024 * 1024)) << " Mb\n";
 
-   size_t required_for_jacobian = 15 * 4 * area(reference);
+   size_t required_for_jacobian = 10    * 4 * area(reference);
    compute_jacobian_on_gpu = (free_mem > required_for_jacobian);
 
    if (compute_jacobian_on_gpu)
@@ -91,16 +94,14 @@ void GpuFrameWarper::setupReferenceInformation()
          }
       }   
 
-      std::vector<GpuRange> range_host(nD);
-
+      gpu_reference->range.resize(nD);
       for(int i=0; i<nD; i++)
       {
-         range_host[i].begin = VI_dW_dp[i].first();
-         range_host[i].end = VI_dW_dp[i].last();
+         gpu_reference->range[i].begin = VI_dW_dp[i].first();
+         gpu_reference->range[i].end = VI_dW_dp[i].last();
       }
 
       checkCudaErrors(cudaMemcpy(gpu_reference->VI_dW_dp, VI_dW_dp_host, range_max * nD * sizeof(float3), cudaMemcpyHostToDevice));
-      checkCudaErrors(cudaMemcpy(gpu_reference->range, range_host.data(), nD * sizeof(GpuRange), cudaMemcpyHostToDevice));
       checkCudaErrors(cudaFreeHost(VI_dW_dp_host));
    }
 
@@ -109,6 +110,7 @@ void GpuFrameWarper::setupReferenceInformation()
 
 std::shared_ptr<GpuFrame> GpuFrameWarper::getRegisteredFrame(const cv::Mat& frame)
 {
+   std::lock_guard<std::mutex> lk(mutex);   
    if (frames.count(frame.data) == 0)
       throw std::runtime_error("Unrecognised frame");
    return frames[frame.data];
@@ -116,6 +118,7 @@ std::shared_ptr<GpuFrame> GpuFrameWarper::getRegisteredFrame(const cv::Mat& fram
 
 std::shared_ptr<GpuWorkingSpace> GpuFrameWarper::getWorkingSpace(const cv::Mat& frame)
 {
+   std::lock_guard<std::mutex> lk(mutex);   
    if (frame_space.count(frame.data) == 0)
       throw std::runtime_error("Unrecognised frame");
    return working_space[frame_space[frame.data]];   
@@ -171,12 +174,18 @@ void GpuFrameWarper::getJacobian(const cv::Mat& frame, const std::vector<cv::Poi
       computeJacobian(error_image, jac);   
    }
 
+
    /*
+   column_vector jac2;
+   cv::Mat error_image(dims, CV_32F);
+   checkCudaErrors(cudaMemcpy(error_image.data, w->error_image, dims[X] * dims[Y] * dims[Z] * sizeof(float), cudaMemcpyDeviceToHost));
+   computeJacobian(error_image, jac2);   
+
    std::cout << std::scientific << std::setw(5) << std::setprecision(3) << std::showpos;
    for(int i=0; i<jac.size(); i++)
    {
       if (i % 3 == 0) std::cout << "\n     > ";
-      std::cout << jac(i) << "  |  ";
+      std::cout << (jac(i) - jac2(i)) << "  |  ";
    }
    std::cout << "\n";
    */

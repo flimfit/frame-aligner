@@ -27,20 +27,16 @@ protected:
 class GpuWorkingSpace
 {
 public:
-   GpuWorkingSpace(int volume, int nD, int range_max, bool calculate_jacobian_on_gpu);
+   GpuWorkingSpace(int volume, int nD, int range_max);
    ~GpuWorkingSpace();
 
    float* error_image;
-   float* error_sq_image;
    float* error_sum;
    uint16_t* mask;
-   float3* jacobian;
    float3* D;
    int3 size;
    cudaStream_t stream;
-
-protected:
-   bool calculate_jacobian_on_gpu;
+   float* host_buffer;
 };
 
 struct GpuRange
@@ -59,7 +55,7 @@ public:
    cv::Mat cvref;
    float* reference = nullptr;
    float3 *VI_dW_dp = nullptr;
-   GpuRange *range = nullptr;
+   std::vector<GpuRange> range;
    float3 offset;
    int nD = 0;
    int range_max = 0;
