@@ -24,10 +24,17 @@ protected:
    int texture;
 };
 
+struct GpuWorkingSpaceParams
+{
+   int volume;
+   int nD;
+   int range_max;
+};
+
 class GpuWorkingSpace
 {
 public:
-   GpuWorkingSpace(int volume, int nD, int range_max);
+   GpuWorkingSpace(GpuWorkingSpaceParams params);
    ~GpuWorkingSpace();
 
 

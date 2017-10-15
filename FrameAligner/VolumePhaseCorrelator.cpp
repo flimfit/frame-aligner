@@ -51,8 +51,6 @@ void VolumePhaseCorrelator::setReference(const float* volume)
 
    for(int i=0; i<n_complex; i++)
       reference[i] = conj(p->out[i]);
-
-   pool.release(std::move(p));
 }
 
 
@@ -90,8 +88,6 @@ cv::Point3d VolumePhaseCorrelator::computeShift(const float* volume)
          idx = i;
       } 
    }
-
-   pool.release(std::move(p));
 
    // Compute peak index - could interpolate here
    int x = idx % dims[X];

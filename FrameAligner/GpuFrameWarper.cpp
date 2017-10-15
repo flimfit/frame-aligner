@@ -18,39 +18,16 @@ bool GpuFrameWarper::hasSupportedGpu()
    return checkCudaCapabilities(3, 0);
 }
 
-
-int GpuFrameWarper::registerWorkingSpace(const std::vector<cv::Mat>& new_frames)
+void GpuFrameWarper::registerFrame(const cv::Mat& frame)
 {
-   std::lock_guard<std::mutex> lk(mutex);
-   int id = next_id++;
-
-   if (new_frames.empty())
-      throw std::runtime_error("Must have at least one frame");
-
-   working_space[id] = std::make_shared<GpuWorkingSpace>(area(new_frames[0]), nD, range_max);
-   for(auto& f : new_frames)
-   {
-      frames[f.data] = std::make_shared<GpuFrame>(f);
-      frame_space[f.data] = id;      
-   }
-
-   return id;
+   std::lock_guard<std::mutex> lk(mutex);   
+   frames[frame.data] = std::make_shared<GpuFrame>(frame);
 }
-
-void GpuFrameWarper::deregisterWorkingSpace(int id)
+ 
+void GpuFrameWarper::deregisterFrame(const cv::Mat& frame)
 {
-   std::lock_guard<std::mutex> lk(mutex);
-   
-   working_space.erase(id);
-
-   for(auto it = frame_space.begin(); it != frame_space.end();)
-      if (it->second == id)
-      {
-         frames.erase(it->first);
-         frame_space.erase(it++);         
-      }
-      else
-         it++;
+   std::lock_guard<std::mutex> lk(mutex);   
+   frames.erase(frame.data);
 }
 
 void GpuFrameWarper::setupReferenceInformation()
@@ -94,6 +71,13 @@ void GpuFrameWarper::setupReferenceInformation()
       gpu_reference->range[i].end = dp.last();   
 
    }   
+
+   GpuWorkingSpaceParams params;
+   params.volume = area(reference);
+   params.nD = nD;
+   params.range_max = range_max;
+   pool.setInit(params);
+
     
    /*
    if (!stream_VI)
@@ -114,14 +98,6 @@ std::shared_ptr<GpuFrame> GpuFrameWarper::getRegisteredFrame(const cv::Mat& fram
    return frames[frame.data];
 }
 
-std::shared_ptr<GpuWorkingSpace> GpuFrameWarper::getWorkingSpace(const cv::Mat& frame)
-{
-   std::lock_guard<std::mutex> lk(mutex);   
-   if (frame_space.count(frame.data) == 0)
-      throw std::runtime_error("Unrecognised frame");
-   return working_space[frame_space[frame.data]];   
-}
-
 std::vector<float3> GpuFrameWarper::D2float3(const std::vector<cv::Point3d>& D)
 {
    std::vector<float3> Df(nD);
@@ -139,7 +115,7 @@ std::vector<float3> GpuFrameWarper::D2float3(const std::vector<cv::Point3d>& D)
 double GpuFrameWarper::getError(const cv::Mat& frame, const std::vector<cv::Point3d>& D)
 {
    auto f = getRegisteredFrame(frame);
-   auto w = getWorkingSpace(frame);   
+   auto w = pool.get();   
    auto Df = D2float3(D);
 
    checkCudaErrors(cudaMemcpy(w->D, Df.data(), nD*sizeof(float3), cudaMemcpyHostToDevice));
@@ -149,7 +125,7 @@ double GpuFrameWarper::getError(const cv::Mat& frame, const std::vector<cv::Poin
 void GpuFrameWarper::getJacobian(const cv::Mat& frame, const std::vector<cv::Point3d>& D, column_vector& jac)
 {
    auto f = getRegisteredFrame(frame);
-   auto w = getWorkingSpace(frame);
+   auto w = pool.get();
    //auto Df = D2float3(D); => same as before
 
    //if (compute_jacobian_on_gpu)
@@ -195,7 +171,7 @@ void GpuFrameWarper::getJacobian(const cv::Mat& frame, const std::vector<cv::Poi
 void GpuFrameWarper::warpImage(const cv::Mat& frame, cv::Mat& wimg, const std::vector<cv::Point3d>& D, int invalid_value)
 {      
    auto f = getRegisteredFrame(frame);
-   auto w = getWorkingSpace(frame);   
+   auto w = pool.get();
    auto Df = D2float3(D);
 
    checkCudaErrors(cudaMemcpy(w->D, Df.data(), nD*sizeof(float3), cudaMemcpyHostToDevice));
@@ -208,7 +184,7 @@ void GpuFrameWarper::warpImage(const cv::Mat& frame, cv::Mat& wimg, const std::v
 void GpuFrameWarper::warpImageIntensityPreserving(const cv::Mat& frame, cv::Mat& wimg, cv::Mat& coverage, const std::vector<cv::Point3d>& D)
 {
    auto f = getRegisteredFrame(frame);
-   auto w = getWorkingSpace(frame);   
+   auto w = pool.get();   
    auto Df = D2float3(D);
 
    checkCudaErrors(cudaMemcpy(w->D, Df.data(), nD*sizeof(float3), cudaMemcpyHostToDevice));

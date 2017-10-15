@@ -14,7 +14,7 @@ public:
    typedef ::column_vector column_vector;
    typedef matrix<double> general_matrix;
 
-   OptimisationModel(std::shared_ptr<AbstractFrameWarper> warper, const cv::Mat& frame, const cv::Mat& raw_frame);
+   OptimisationModel(std::shared_ptr<AbstractFrameWarper> warper, const cv::Mat& frame);
    ~OptimisationModel();
    
    double operator() (const column_vector& x) const;
@@ -23,9 +23,7 @@ public:
 protected:
 
    std::shared_ptr<AbstractFrameWarper> warper;
-   cv::Mat raw_frame;
    cv::Mat frame;
-   int working_space;
 };
 
 void D2col(const std::vector<cv::Point3d> &D, column_vector& col, int n_dim);

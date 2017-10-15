@@ -119,7 +119,8 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
    raw_frame = reshapeForProcessing(raw_frame);
    smoothStack(raw_frame, frame);
 
-   auto model = OptimisationModel(warper, frame, raw_frame);
+   warper->registerFrame(frame);
+   auto model = OptimisationModel(warper, frame);
 
    std::vector<column_vector> starting_point(2, column_vector(nD * n_dim));
 
@@ -161,7 +162,6 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
       std::cout << e.info;
    }
    
-
    col2D(x, D, n_dim);
    Dstore[frame_t] = D;
    Dlast = *(D.end() - 2);
@@ -169,10 +169,16 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
    std::cout << "*";
 
    cv::Mat warped_smoothed, warped, mask, intensity_preserving, m;
-   warper->warpImage(raw_frame, warped, D);
    warper->warpImage(frame, warped_smoothed, D);
+         
+   warper->deregisterFrame(frame);
+   warper->registerFrame(raw_frame);
 
+   warper->warpImage(raw_frame, warped, D);
    warper->warpImageIntensityPreserving(raw_frame, intensity_preserving, mask, D);
+   
+   warper->deregisterFrame(raw_frame);
+   
    cv::compare(mask, 0, m, cv::CMP_GT);
    
 

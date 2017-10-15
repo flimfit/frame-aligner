@@ -318,6 +318,12 @@ GpuFrame::GpuFrame(const cv::Mat& frame_)
    
    auto& tex = getTexture(texture);
  
+   size_t free_mem, total_mem;
+   checkCudaErrors(cudaMemGetInfo(&free_mem, &total_mem));
+   std::cout << "[Allocating frame] " << (total_mem / (1024 * 1024)) << " / " << (free_mem / (1024 * 1024)) << " Mb\n";
+
+
+
    frame = frame_;
 
    // Set texture parameters
@@ -364,16 +370,16 @@ GpuFrame::~GpuFrame()
 }
 
 
-GpuWorkingSpace::GpuWorkingSpace(int volume, int nD, int range_max)
+GpuWorkingSpace::GpuWorkingSpace(GpuWorkingSpaceParams params)
 {
-   checkCudaErrors(cudaMalloc((void**) &error_sum, 10 * nD * sizeof(float3)));
-   checkCudaErrors(cudaMalloc((void**) &error_image, volume*sizeof(float)));
-   checkCudaErrors(cudaMalloc((void**) &mask, volume*sizeof(uint16_t)));
-   checkCudaErrors(cudaMalloc((void**) &D, nD*sizeof(float3)));
-   checkCudaErrors(cudaMallocHost((void**) &host_buffer, 10 * nD * sizeof(float3)));
+   checkCudaErrors(cudaMalloc((void**) &error_sum, 10 * params.nD * sizeof(float3)));
+   checkCudaErrors(cudaMalloc((void**) &error_image, params.volume*sizeof(float)));
+   checkCudaErrors(cudaMalloc((void**) &mask, params.volume*sizeof(uint16_t)));
+   checkCudaErrors(cudaMalloc((void**) &D, params.nD*sizeof(float3)));
+   checkCudaErrors(cudaMallocHost((void**) &host_buffer, 10 * params.nD * sizeof(float3)));
  
-   const int n_stream = 4;
-   checkCudaErrors(cudaMalloc((void**) &VI_dW_dp, range_max * n_stream * sizeof(float3)));
+   const int n_stream = 2;
+   checkCudaErrors(cudaMalloc((void**) &VI_dW_dp, params.range_max * n_stream * sizeof(float3)));
 
    stream.resize(n_stream);
    for(auto& s : stream)

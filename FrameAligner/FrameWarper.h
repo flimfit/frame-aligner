@@ -99,8 +99,8 @@ public:
    int n_dim = 2;
    std::vector<int> dims;
 
-   virtual int registerWorkingSpace(const std::vector<cv::Mat>& frames) { return 0; };
-   virtual void deregisterWorkingSpace(int space_id) {};
+   virtual void registerFrame(const cv::Mat& frame) {};
+   virtual void deregisterFrame(const cv::Mat& frame) {};
 
 protected:
 

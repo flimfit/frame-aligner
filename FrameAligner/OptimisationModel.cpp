@@ -1,17 +1,14 @@
 #include "OptimisationModel.h"
 
 
-OptimisationModel::OptimisationModel(std::shared_ptr<AbstractFrameWarper> warper, const cv::Mat& frame, const cv::Mat& raw_frame) :
+OptimisationModel::OptimisationModel(std::shared_ptr<AbstractFrameWarper> warper, const cv::Mat& frame) :
 warper(warper),
-raw_frame(raw_frame),
 frame(frame)
 {
-   working_space = warper->registerWorkingSpace({ frame, raw_frame });
 }
 
 OptimisationModel::~OptimisationModel()
 {
-   warper->deregisterWorkingSpace(working_space);
 }
 
 void D2col(const std::vector<cv::Point3d> &D, column_vector& col, int n_dim)
@@ -53,7 +50,7 @@ double OptimisationModel::operator() (const column_vector& x) const
 
    double rms_error = warper->getError(frame, D);
 
-   //std::cout << "E: " << rms_error << "\n";
+   std::cout << "E: " << rms_error << "\n";
    return rms_error;
 }
 
