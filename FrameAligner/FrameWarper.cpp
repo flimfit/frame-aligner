@@ -78,7 +78,7 @@ void CpuFrameWarper::warpImage(const cv::Mat& img, cv::Mat& wimg, const std::vec
          }
 }
 
-void CpuFrameWarper::warpImageIntensityPreserving(const cv::Mat& img, cv::Mat& wimg, cv::Mat& coverage, const std::vector<cv::Point3d>& D)
+void AbstractFrameWarper::warpImageIntensityPreserving(const cv::Mat& img, cv::Mat& wimg, cv::Mat& coverage, const std::vector<cv::Point3d>& D)
 
 {
    wimg = cv::Mat(dims, CV_16U, cv::Scalar(0));

@@ -20,7 +20,7 @@ public:
    void getJacobian(const cv::Mat& img, const std::vector<cv::Point3d>& D, column_vector& jac);
 
    void warpImage(const cv::Mat& img, cv::Mat& wimg, const std::vector<cv::Point3d>& D, int invalid_value = 0);
-   void warpImageIntensityPreserving(const cv::Mat& img, cv::Mat& wimg, cv::Mat& coverage, const std::vector<cv::Point3d>& D);
+   //void warpImageIntensityPreserving(const cv::Mat& img, cv::Mat& wimg, cv::Mat& coverage, const std::vector<cv::Point3d>& D);
 
    void registerFrame(const cv::Mat& frame);
    void deregisterFrame(const cv::Mat& frame);
@@ -41,7 +41,10 @@ protected:
 
    int range_max;
 
+   int max_threads = 1;
+
    std::mutex mutex;
+   std::condition_variable cv;
 
    Pool<GpuWorkingSpace,GpuWorkingSpaceParams> pool;
 

@@ -60,7 +60,6 @@ public:
             pool.push( std::make_unique<T>(init) );                     
          } catch (...)
          {
-            std::cout << "Waiting for pool...\n";
             cv.wait(lk,[&]{ return !pool.empty(); });            
          }
       }

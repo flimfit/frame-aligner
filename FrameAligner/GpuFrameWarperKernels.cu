@@ -158,60 +158,6 @@ GpuTextureManager::GpuTextureManager()
       free_textures.push_back(i);
 }
 
-
-template <unsigned int blockSize, class T>
-__device__ void warpReduce(T *sdata, unsigned int tid) 
-{
-   __syncthreads();
-   if (blockSize >= 512) { if (tid < 256) { sdata[tid] += sdata[tid + 256]; } __syncthreads(); }
-   if (blockSize >= 256) { if (tid < 128) { sdata[tid] += sdata[tid + 128]; } __syncthreads(); }
-   if (blockSize >= 128) { if (tid < 64) { sdata[tid] += sdata[tid + 64]; } __syncthreads(); }
-   if (blockSize >= 64) { if (tid < 32) { sdata[tid] += sdata[tid + 32]; } __syncthreads(); }
-   if (blockSize >= 32) { if (tid < 16) { sdata[tid] += sdata[tid + 16]; } __syncthreads(); }
-   if (blockSize >= 16) { if (tid < 8) { sdata[tid] += sdata[tid + 8]; } __syncthreads(); }
-   if (blockSize >= 8) { if (tid < 4) { sdata[tid] += sdata[tid + 4]; } __syncthreads(); }
-   if (blockSize >= 4) { if (tid < 2) { sdata[tid] += sdata[tid + 2]; } __syncthreads(); }
-   if (blockSize >= 2) { if (tid < 1) { sdata[tid] += sdata[tid + 1]; } __syncthreads(); }
-}
-
-template <unsigned int blockSize>
-__global__ void jacobianReduceSum(f3 * g_odata, float* error_img, f3* __restrict__ VI_dW_dp, int n, GpuRange range) 
-{
-   extern __shared__ f3 sdata2[];
-
-   unsigned int tid = threadIdx.x;
-   unsigned int i = blockIdx.x * blockSize + tid;
-   unsigned int gridSize = blockSize * gridDim.x;
-
-   sdata2[tid] = 0.0f;
-   while (i < n) 
-   {
-      sdata2[tid] += (VI_dW_dp[i] * error_img[i + range.begin]);
-      i += gridSize;
-   }
-   warpReduce<blockSize>(sdata2, tid);
-   if (tid == 0) { g_odata[blockIdx.x] = sdata2[0]; };
-}
-
-template <unsigned int blockSize>
-__global__ void reduceSumSquared(float *g_idata, float *g_odata, unsigned int n) 
-{
-   extern __shared__ float sdata1[];
-
-   unsigned int tid = threadIdx.x;
-   unsigned int i = blockIdx.x * 2 * blockSize + tid;
-   unsigned int gridSize = blockSize * 2 * gridDim.x;
-   sdata1[tid] = 0.0f;
-   while (i < n) 
-   {
-      sdata1[tid] += g_idata[i] * g_idata[i] + g_idata[i + blockSize] * g_idata[i + blockSize]; 
-      i += gridSize;
-   }
-   warpReduce<blockSize>(sdata1, tid);
-   if (tid == 0) { g_odata[blockIdx.x] = sdata1[0]; };
-}
-
-
 __device__ float3 warpPoint(int nD, const float3* D, float3 offset, int x, int y, int z)
 {
    float Didx = (x * offset.x + y * offset.y + z * offset.z) * (nD-1);
@@ -252,20 +198,93 @@ __device__ float getPoint(int tex_id, float3 p)
    return 0;
 }
 
+__device__ float warpAndGetError(WarpParams w, int idx)
+{
+   int x = idx % w.size.x;
+   int iy = idx / w.size.x;
+   int y = iy % w.size.y;
+   int z = iy / w.size.y;
 
-__global__ void warp(int tex_id, int3 size, float3 offset, float* warp_img, int nD, float3* D)
+   float3 p = warpPoint(w.nD, w.D, w.offset, x, y, z);
+   p.x += x; p.y += y; p.z += z;
+   float v = getPoint(w.tex_id, p);
+
+   float mask = (v != 0.0f) ? 1.0f : 0.0f; // set out of range values to zero
+   v -= (1.0f + w.reference[idx]); // we have added 1 to use zero as special case
+   return mask * v; 
+}
+
+
+template <unsigned int blockSize, class T>
+__device__ void warpReduce(T *sdata, unsigned int tid) 
+{
+   __syncthreads();
+   if (blockSize >= 512) { if (tid < 256) { sdata[tid] += sdata[tid + 256]; } __syncthreads(); }
+   if (blockSize >= 256) { if (tid < 128) { sdata[tid] += sdata[tid + 128]; } __syncthreads(); }
+   if (blockSize >= 128) { if (tid < 64) { sdata[tid] += sdata[tid + 64]; } __syncthreads(); }
+   if (blockSize >= 64) { if (tid < 32) { sdata[tid] += sdata[tid + 32]; } __syncthreads(); }
+   if (blockSize >= 32) { if (tid < 16) { sdata[tid] += sdata[tid + 16]; } __syncthreads(); }
+   if (blockSize >= 16) { if (tid < 8) { sdata[tid] += sdata[tid + 8]; } __syncthreads(); }
+   if (blockSize >= 8) { if (tid < 4) { sdata[tid] += sdata[tid + 4]; } __syncthreads(); }
+   if (blockSize >= 4) { if (tid < 2) { sdata[tid] += sdata[tid + 2]; } __syncthreads(); }
+   if (blockSize >= 2) { if (tid < 1) { sdata[tid] += sdata[tid + 1]; } __syncthreads(); }
+}
+
+template <unsigned int blockSize>
+__global__ void jacobianReduceSum(f3 * g_odata, WarpParams w, f3* __restrict__ VI_dW_dp, int n, GpuRange range) 
+{
+   extern __shared__ f3 sdata2[];
+
+   unsigned int tid = threadIdx.x;
+   unsigned int i = blockIdx.x * blockSize + tid;
+   unsigned int gridSize = blockSize * gridDim.x;
+
+   sdata2[tid] = 0.0f;
+   while (i < n) 
+   {
+      sdata2[tid] += (VI_dW_dp[i] * warpAndGetError(w, i + range.begin));
+      i += gridSize;
+   }
+   warpReduce<blockSize>(sdata2, tid);
+   if (tid == 0) { g_odata[blockIdx.x] = sdata2[0]; };
+}
+
+template <unsigned int blockSize>
+__global__ void reduceSumSquared(WarpParams w, float *g_odata, unsigned int n) 
+{
+   extern __shared__ float sdata1[];
+
+   unsigned int tid = threadIdx.x;
+   unsigned int i = blockIdx.x * blockSize + tid;
+   unsigned int gridSize = blockSize * gridDim.x;
+   sdata1[tid] = 0.0f;
+   while (i < n) 
+   {
+      float e1 = warpAndGetError(w, i);
+      //float e2 = warpAndGetError(w, i + blockSize);
+      sdata1[tid] += (e1 * e1); 
+      i += gridSize;
+   }
+   warpReduce<blockSize>(sdata1, tid);
+   if (tid == 0) { g_odata[blockIdx.x] = sdata1[0]; };
+}
+
+
+
+__global__ void warp(WarpParams w, float* warp_img, int z)
 {
    int x = threadIdx.x + blockDim.x * blockIdx.x;
    int y = threadIdx.y + blockDim.y * blockIdx.y;   
-   int z = threadIdx.z + blockDim.z * blockIdx.z;
-   int idx = x + y * size.x + z * (size.x * size.y);
+   int idx = x + y * w.size.x;
 
-   float3 p = warpPoint(nD, D, offset, x, y, z);
+   float3 p = warpPoint(w.nD, w.D, w.offset, x, y, z);
    p.x += x; p.y += y; p.z += z;
-   float v = getPoint(tex_id, p);
+   float v = getPoint(w.tex_id, p);
 
    warp_img[idx] = (v != 0.0f) * (v - 1.0f);
 }
+
+
 
 __global__ void warpAndGetError(int tex_id, int3 size, float3 offset, float* __restrict__ reference, float* __restrict__ error_img, int nD, float3* D)
 {
@@ -313,16 +332,34 @@ __global__ void warpIntensityPreserving(int tex_id, int3 size, float3 offset, fl
 
 GpuFrame::GpuFrame(const cv::Mat& frame_)
 {
+   // Get texture reference
    auto tex_manager = GpuTextureManager::instance();
    texture = tex_manager->getTextureId();
+
+   // Try and allocate array
+   size.x = frame_.size[2];
+   size.y = frame_.size[1];
+   size.z = frame_.size[0];
+
+   // Allocate array and copy image data
+   cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<float>();
+   cudaExtent extent = make_cudaExtent(size.x, size.y, size.z);
+   int success = cudaMalloc3DArray(&cu_array, &channelDesc, extent);
+
+   // If we couldn't get enough memory throw an exception
+   if (success != cudaSuccess)
+   {
+      tex_manager->returnTextureId(texture);
+      std::cout << "Not enough memory to allocate frame!\n"; 
+      throw std::runtime_error("Not enough memory to allocate frame");
+   }
    
+
    auto& tex = getTexture(texture);
  
    size_t free_mem, total_mem;
    checkCudaErrors(cudaMemGetInfo(&free_mem, &total_mem));
    std::cout << "[Allocating frame] " << (total_mem / (1024 * 1024)) << " / " << (free_mem / (1024 * 1024)) << " Mb\n";
-
-
 
    frame = frame_;
 
@@ -338,15 +375,6 @@ GpuFrame::GpuFrame(const cv::Mat& frame_)
    frame.copyTo(frame_cpy);
    frame_cpy += 1.0f;
 
-   size.x = frame.size[2];
-   size.y = frame.size[1];
-   size.z = frame.size[0];
-
-   // Allocate array and copy image data
-   cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<float>();
-   cudaExtent extent = make_cudaExtent(size.x, size.y, size.z);
-   checkCudaErrors(cudaMalloc3DArray(&cu_array, &channelDesc, extent));
-   
    cudaMemcpy3DParms copy_params = {0};
    copy_params.srcPtr = make_cudaPitchedPtr((void*) frame_cpy.data, size.x * sizeof(float), size.x, size.y);
    copy_params.dstArray = cu_array;
@@ -372,15 +400,19 @@ GpuFrame::~GpuFrame()
 
 GpuWorkingSpace::GpuWorkingSpace(GpuWorkingSpaceParams params)
 {
-   checkCudaErrors(cudaMalloc((void**) &error_sum, 10 * params.nD * sizeof(float3)));
-   checkCudaErrors(cudaMalloc((void**) &error_image, params.volume*sizeof(float)));
-   checkCudaErrors(cudaMalloc((void**) &mask, params.volume*sizeof(uint16_t)));
-   checkCudaErrors(cudaMalloc((void**) &D, params.nD*sizeof(float3)));
-   checkCudaErrors(cudaMallocHost((void**) &host_buffer, 10 * params.nD * sizeof(float3)));
+   size_t free_mem, total_mem;
+   checkCudaErrors(cudaMemGetInfo(&free_mem, &total_mem));
+   std::cout << "[Allocating working space] " << (total_mem / (1024 * 1024)) << " / " << (free_mem / (1024 * 1024)) << " Mb\n";
+
+   error_sum.allocate(30 * params.nD);
+   host_buffer.allocate(10 * params.nD);
+   D.allocate(params.nD);
  
    const int n_stream = 2;
-   checkCudaErrors(cudaMalloc((void**) &VI_dW_dp, params.range_max * n_stream * sizeof(float3)));
 
+   VI_dW_dp.allocate(params.range_max * n_stream);
+   error_image.allocate(params.nxny * n_stream);
+   
    stream.resize(n_stream);
    for(auto& s : stream)
       cudaStreamCreate(&s);
@@ -388,12 +420,6 @@ GpuWorkingSpace::GpuWorkingSpace(GpuWorkingSpaceParams params)
 
 GpuWorkingSpace::~GpuWorkingSpace()
 {
-   checkCudaErrors(cudaFree(error_sum));
-   checkCudaErrors(cudaFree(error_image));
-   checkCudaErrors(cudaFree(mask));
-   checkCudaErrors(cudaFree(D));
-   checkCudaErrors(cudaFreeHost(host_buffer));
-
    for(auto& s : stream)
       cudaStreamDestroy(s);
 }
@@ -402,37 +428,57 @@ GpuWorkingSpace::~GpuWorkingSpace()
 GpuReferenceInformation::GpuReferenceInformation(const cv::Mat& ref_, float3 offset, int nD, int range_max, bool stream_VI) :
    offset(offset), nD(nD), range_max(range_max), stream_VI(stream_VI)
 {
+   size_t free_mem, total_mem;
+   checkCudaErrors(cudaMemGetInfo(&free_mem, &total_mem));
+   std::cout << "[Allocating reference] " << (total_mem / (1024 * 1024)) << " / " << (free_mem / (1024 * 1024)) << " Mb\n";
+
    size_t n_px = ref_.size[0] * ref_.size[1] * ref_.size[2];
 
    cvref = ref_;
 
-   checkCudaErrors(cudaMallocHost((void**) &VI_dW_dp_host, range_max * nD * sizeof(float3)));
+   VI_dW_dp_host.allocate(range_max * nD);
+   reference.allocate(n_px);   
    
-   checkCudaErrors(cudaMalloc((void**) &reference, n_px * sizeof(float)));
    checkCudaErrors(cudaMemcpy(reference, ref_.data, n_px * sizeof(float), cudaMemcpyHostToDevice));
 }
 
-GpuReferenceInformation::~GpuReferenceInformation()
+WarpParams getWarpParams(GpuFrame* frame, GpuWorkingSpace* w, GpuReferenceInformation* gpu_ref)
 {
-   if (VI_dW_dp_host)
-      checkCudaErrors(cudaFreeHost(VI_dW_dp_host));
-   checkCudaErrors(cudaFree(reference));
+   WarpParams p;
+   p.tex_id = frame->getTextureId();
+   p.size = frame->size;
+   p.offset = gpu_ref->offset;
+   p.reference = gpu_ref->reference;
+   p.nD = gpu_ref->nD;
+   p.D = w->D;
+   return p;
 }
 
-
-void computeWarp(GpuFrame* frame, GpuWorkingSpace* w, GpuReferenceInformation* gpu_ref)
+void computeWarp(GpuFrame* frame, GpuWorkingSpace* w, GpuReferenceInformation* gpu_ref, float* warped)
 {
-   auto size = frame->size;
+   WarpParams p = getWarpParams(frame, w, gpu_ref);
+   auto size = p.size;
+   int nxny = size.x * size.y;
+
    dim3 dimBlock(32, 32, 1);
    dim3 dimGrid(size.x / 32, size.y / 32, size.z);
 
-   int id = frame->getTextureId();
-   warp<<<dimGrid, dimBlock, 0, w->stream[0]>>>(id, frame->size, gpu_ref->offset, w->error_image, gpu_ref->nD, w->D);
-   getLastCudaError("Kernel execution failed [ warp ]");
+   for(int z=0; z<size.z; z++)
+   {
+      int stream_max = std::min((int)(w->stream.size()), size.z - z);
+      for(int s=0; s<stream_max; s++)
+      {
+         warp<<<dimGrid, dimBlock, 0, w->stream[s]>>>(p, w->error_image + s * size.x*size.y, z+s);
+         getLastCudaError("Kernel execution failed [ warp ]");      
+      }
+      for(int s=0; s<stream_max; s++)
+         checkCudaErrors(cudaMemcpyAsync(warped + (z + s) * nxny, w->error_image + s * nxny, 
+            nxny * sizeof(float), cudaMemcpyDeviceToHost, w->stream[s]));      
+   }
 }
 
-
-void computeIntensityPreservingWarp(GpuFrame* frame, GpuWorkingSpace* w, GpuReferenceInformation* gpu_ref)
+/*
+void computeIntensityPreservingWarp(GpuFrame* frame, GpuWorkingSpace* w, GpuReferenceInformation* gpu_ref, float* warped, uint16* mask)
 {
    auto size = frame->size;
    dim3 dimBlock(32, 32, 1);
@@ -445,23 +491,19 @@ void computeIntensityPreservingWarp(GpuFrame* frame, GpuWorkingSpace* w, GpuRefe
    warpIntensityPreserving<<<dimGrid, dimBlock, 0, w->stream[0]>>>(id, frame->size, gpu_ref->offset, w->error_image, w->mask, gpu_ref->nD, w->D);
    getLastCudaError("Kernel execution failed [ warpIntensityPreserving ]");
 }
+*/
+
 
 
 double computeError(GpuFrame* frame, GpuWorkingSpace* w, GpuReferenceInformation* gpu_ref)
 {
-   auto size = frame->size;
+   WarpParams p = getWarpParams(frame, w, gpu_ref);
+   auto size = p.size;
    int volume = size.x * size.y * size.z;
 
-   dim3 dimBlock(32, 32, 1);
-   dim3 dimGrid(size.x / 32, size.y / 32, size.z);
-
-   int id = frame->getTextureId();
-   warpAndGetError<<<dimGrid, dimBlock, 0, w->stream[0]>>>(id, frame->size, gpu_ref->offset, gpu_ref->reference, w->error_image, gpu_ref->nD, w->D);
-   getLastCudaError("Kernel execution failed [ reduceSum ]");
-
    const int block_size = 512;
-   int n_block = 1; //volume / (block_size * 2);
-   reduceSumSquared<block_size><<<dim3(1,1,1), dim3(block_size,1,1), block_size * sizeof(float), w->stream[0]>>> (w->error_image, w->error_sum, volume);
+   int n_block = 1;
+   reduceSumSquared<block_size><<<dim3(1,1,1), dim3(block_size,1,1), block_size * sizeof(float), w->stream[0]>>> (p, w->error_sum, volume);
    getLastCudaError("Kernel execution failed [ reduceSum ]");
 
    checkCudaErrors(cudaMemcpy(w->host_buffer, w->error_sum, n_block*sizeof(float), cudaMemcpyDeviceToHost));
@@ -481,6 +523,7 @@ std::vector<float3> computeJacobianGpu(GpuFrame* frame, GpuWorkingSpace* w, GpuR
    const int block_size = 512;
 
    int nD = gpu_ref->nD;
+   WarpParams p = getWarpParams(frame, w, gpu_ref);
 
    int idx = 0;
    while(idx < nD)
@@ -496,7 +539,7 @@ std::vector<float3> computeJacobianGpu(GpuFrame* frame, GpuWorkingSpace* w, GpuR
          auto range = gpu_ref->range[idx + s];
          float3* VI = w->VI_dW_dp + range_max * (gpu_ref->stream_VI ? s : (idx + s));
          jacobianReduceSum<block_size><<<n_block, block_size, block_size * sizeof(float3), w->stream[s]>>> 
-            (((f3*) w->error_sum) + (idx + s) * n_block, w->error_image, (f3*) VI, range.end-range.begin, range);
+            (((f3*) (float*) w->error_sum) + (idx + s) * n_block, p, (f3*) VI, range.end-range.begin, range);
          getLastCudaError("Kernel execution failed [ jacobianReduceSum ]");  
             
       }
@@ -506,7 +549,7 @@ std::vector<float3> computeJacobianGpu(GpuFrame* frame, GpuWorkingSpace* w, GpuR
    for(int i=0; i<w->stream.size(); i++)
       cudaStreamSynchronize(w->stream[i]);
 
-   float3* buffer = (float3*) w->host_buffer;
+   float3* buffer = (float3*) (float*) w->host_buffer;
    checkCudaErrors(cudaMemcpy(buffer, w->error_sum, n_block * nD * sizeof(float3), cudaMemcpyDeviceToHost));   
 
    std::vector<float3> jac_out(gpu_ref->nD);

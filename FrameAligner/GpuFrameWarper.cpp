@@ -20,29 +20,36 @@ bool GpuFrameWarper::hasSupportedGpu()
 
 void GpuFrameWarper::registerFrame(const cv::Mat& frame)
 {
-   std::lock_guard<std::mutex> lk(mutex);   
-   frames[frame.data] = std::make_shared<GpuFrame>(frame);
+   std::unique_lock<std::mutex> lk(mutex);
+   cv.wait(lk, [&]{ return (frames.size() < max_threads); });  // make sure we don't allocate too many frames   
+
+   try
+   {
+      frames[frame.data] = std::make_shared<GpuFrame>(frame);      
+   }
+   catch(std::runtime_error e)
+   {
+      if (max_threads > 1)
+         max_threads--; // we obviously don't have enough memory...
+      lk.unlock();
+      registerFrame(frame);
+   }
 }
  
 void GpuFrameWarper::deregisterFrame(const cv::Mat& frame)
 {
-   std::lock_guard<std::mutex> lk(mutex);   
-   frames.erase(frame.data);
+   {
+      std::lock_guard<std::mutex> lk(mutex);   
+      frames.erase(frame.data);   
+   }
+   cv.notify_all();
 }
 
 void GpuFrameWarper::setupReferenceInformation()
 {
-   size_t free_mem, total_mem;
-   checkCudaErrors(cudaMemGetInfo(&free_mem, &total_mem));
-   std::cout << "GPU Memory (total/free) : " << (total_mem / (1024 * 1024)) << " / " << (free_mem / (1024 * 1024)) << " Mb\n";
-
-   size_t required_for_jacobian = 10 * 4 * area(reference);
-   stream_VI = (free_mem < required_for_jacobian);
+   // Setup reference information 
 
    stream_VI = true;
-
-   if (stream_VI)
-      std::cout << "Streaming Jacobian (needed " << required_for_jacobian / (1024 * 1024) << " Mb)\n";
       
    float3 offset;
    double stack_duration = dims[Z] * image_params.frame_duration;
@@ -72,8 +79,31 @@ void GpuFrameWarper::setupReferenceInformation()
 
    }   
 
+
+   // Determine how many threads we can support
+   size_t free_mem, total_mem;
+   checkCudaErrors(cudaMemGetInfo(&free_mem, &total_mem));
+   std::cout << "GPU Memory (total/free) : " << (total_mem / (1024 * 1024)) << " / " << (free_mem / (1024 * 1024)) << " Mb\n";
+
+   size_t volume = dims[X] * dims[Y] * dims[Z];
+
+   size_t working_space_size = volume / nD * sizeof(float) * 3 * 2 +     // approximate size of VI_dW_dp storage 
+   dims[X] * dims[Y] * sizeof(float) * 2; // storage for warp
+   size_t frame_size = volume * sizeof(float);
+
+   max_threads = (free_mem) / (frame_size + working_space_size / 2); // can share working space;
+   max_threads = std::min(max_threads, 16); // only 16 texure refs currently
+
+   if (max_threads == 0)
+   throw std::runtime_error("Not enough video memory to use GPU");
+
+   std::cout << "  > Optimal threads: " << max_threads << "\n";
+
+   
+   // Setup working space
+
    GpuWorkingSpaceParams params;
-   params.volume = area(reference);
+   params.nxny = reference.size[X] * reference.size[Y];
    params.nD = nD;
    params.range_max = range_max;
    pool.setInit(params);
@@ -174,25 +204,8 @@ void GpuFrameWarper::warpImage(const cv::Mat& frame, cv::Mat& wimg, const std::v
    auto w = pool.get();
    auto Df = D2float3(D);
 
-   checkCudaErrors(cudaMemcpy(w->D, Df.data(), nD*sizeof(float3), cudaMemcpyHostToDevice));
-   computeWarp(f.get(), w.get(), gpu_reference.get());
-
    wimg = cv::Mat(dims, CV_32F);
-   checkCudaErrors(cudaMemcpy(wimg.data, w->error_image, dims[X]*dims[Y]*dims[Z]*sizeof(float), cudaMemcpyDeviceToHost));   
-}
-
-void GpuFrameWarper::warpImageIntensityPreserving(const cv::Mat& frame, cv::Mat& wimg, cv::Mat& coverage, const std::vector<cv::Point3d>& D)
-{
-   auto f = getRegisteredFrame(frame);
-   auto w = pool.get();   
-   auto Df = D2float3(D);
 
    checkCudaErrors(cudaMemcpy(w->D, Df.data(), nD*sizeof(float3), cudaMemcpyHostToDevice));
-   computeIntensityPreservingWarp(f.get(), w.get(), gpu_reference.get());
-
-   wimg = cv::Mat(dims, CV_32F);   
-   checkCudaErrors(cudaMemcpy(wimg.data, w->error_image, dims[X]*dims[Y]*dims[Z]*sizeof(float), cudaMemcpyDeviceToHost));   
-
-   coverage = cv::Mat(dims, CV_16U);   
-   checkCudaErrors(cudaMemcpy(coverage.data, w->mask, dims[X]*dims[Y]*dims[Z]*sizeof(uint16_t), cudaMemcpyDeviceToHost));   
+   computeWarp(f.get(), w.get(), gpu_reference.get(), (float*) wimg.data);
 }
