@@ -56,8 +56,6 @@ add_library(FrameAligner STATIC ${SOURCE} ${HEADERS})
 
 target_link_libraries(FrameAligner ${FrameAligner_LIBRARIES})
 
-target_compile_features(FrameAligner PUBLIC cxx_std_11)
-
 if(APPLE)
 # We need to add the path to the driver (libcuda.dylib) as an rpath, 
 # so that the static cuda runtime can find it at runtime.

@@ -367,7 +367,7 @@ GpuFrame::GpuFrame(const cv::Mat& frame_)
    tex.addressMode[0] = cudaAddressModeBorder;
    tex.addressMode[1] = cudaAddressModeBorder;
    tex.addressMode[2] = cudaAddressModeBorder;
-   tex.filterMode = cudaFilterModePoint;
+   tex.filterMode = cudaFilterModeLinear;
    tex.normalized = false;
 
    // Add 1 to frame value -> we want to use zero as a special case
@@ -525,10 +525,10 @@ std::vector<float3> computeJacobianGpu(GpuFrame* frame, GpuWorkingSpace* w, GpuR
    int nD = gpu_ref->nD;
    WarpParams p = getWarpParams(frame, w, gpu_ref);
 
-   int idx = 0;
+   size_t idx = 0;
    while(idx < nD)
    {
-      int stream_max = std::min((int)(w->stream.size()), nD - idx);
+      int stream_max = std::min(w->stream.size(), nD - idx);
       if (gpu_ref->stream_VI)
          for(int s=0; s<stream_max; s++)
             checkCudaErrors(cudaMemcpyAsync(w->VI_dW_dp + s * range_max, gpu_ref->VI_dW_dp_host + (idx + s) * range_max, 
