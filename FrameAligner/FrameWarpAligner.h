@@ -41,7 +41,7 @@ public:
 protected:
 
    void smoothStack(const cv::Mat& in, cv::Mat& out);
-   cv::Mat reshapeForOutput(cv::Mat& m);
+   cv::Mat reshapeForOutput(cv::Mat& m, int type);
    cv::Mat reshapeForProcessing(cv::Mat& m);
    
    cv::Mat smoothed_reference;

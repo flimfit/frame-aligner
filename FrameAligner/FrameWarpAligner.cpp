@@ -17,14 +17,14 @@ FrameWarpAligner::FrameWarpAligner(RealignmentParameters params)
    alt_warper = std::make_shared<CpuFrameWarper>();
 }
 
-cv::Mat FrameWarpAligner::reshapeForOutput(cv::Mat& m)
+cv::Mat FrameWarpAligner::reshapeForOutput(cv::Mat& m, int type)
 {
    cv::Mat out;
    if ((dims[Z] == 1) && output2d)
       out = m.reshape(0, 2, &dims[Y]);
    else
       out = m;
-   out.convertTo(out, CV_8U);
+   out.convertTo(out, type);
    return out;
 }
 
@@ -188,9 +188,9 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
    std::unique_lock<std::mutex> lk(align_mutex);
 
    RealignmentResult r;
-   r.frame = reshapeForOutput(raw_frame);
-   r.realigned = reshapeForOutput(warped);
-   r.mask = reshapeForOutput(mask);
+   r.frame = reshapeForOutput(raw_frame, CV_8U);
+   r.realigned = reshapeForOutput(warped, CV_8U);
+   r.mask = reshapeForOutput(mask, CV_16U);
    r.correlation = correlation(warped_smoothed, smoothed_reference, m);
    r.unaligned_correlation = correlation(frame, smoothed_reference, m);
    r.coverage = ((double)cv::countNonZero(mask)) / (dims[X] * dims[Y] * dims[Z]);
@@ -198,7 +198,7 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
    if (r.correlation < realign_params.correlation_threshold || r.coverage < realign_params.coverage_threshold)
       intensity_preserving = 0;
 
-   r.realigned_preserving = reshapeForOutput(intensity_preserving);
+   r.realigned_preserving = reshapeForOutput(intensity_preserving, CV_8U);
    r.done = true;
    
    results[frame_t] = r;
