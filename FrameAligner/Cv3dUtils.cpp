@@ -15,7 +15,7 @@ cv::Mat extractSlice(const cv::Mat& m, int slice)
 
 int area(const cv::Mat& m)
 {
-   int area = 1;
+   int area = (m.dims > 0) ? 1 : 0;
    for(int i=0; i<m.dims; i++)
       area *= m.size[i];
    return area;

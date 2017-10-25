@@ -19,10 +19,13 @@ FrameWarpAligner::FrameWarpAligner(RealignmentParameters params)
 
 cv::Mat FrameWarpAligner::reshapeForOutput(cv::Mat& m)
 {
+   cv::Mat out;
    if ((dims[Z] == 1) && output2d)
-      return m.reshape(0, 2, &dims[Y]);
+      out = m.reshape(0, 2, &dims[Y]);
    else
-      return m;
+      out = m;
+   out.convertTo(out, CV_8U);
+   return out;
 }
 
 cv::Mat FrameWarpAligner::reshapeForProcessing(cv::Mat& m)
@@ -180,7 +183,9 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
    warper->deregisterFrame(raw_frame);
    
    cv::compare(mask, 0, m, cv::CMP_GT);
+
    
+   std::unique_lock<std::mutex> lk(align_mutex);
 
    RealignmentResult r;
    r.frame = reshapeForOutput(raw_frame);
@@ -197,6 +202,9 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
    r.done = true;
    
    results[frame_t] = r;
+   lk.unlock();
+
+   align_cv.notify_all();
 
    return r;
 }
@@ -220,8 +228,13 @@ void FrameWarpAligner::shiftPixel(int frame_t, double& x, double& y, double& z)
 
 cv::Mat FrameWarpAligner::realignAsFrame(int frame_t, const cv::Mat& frame)
 {
+   std::unique_lock<std::mutex> lk(align_mutex);
+   align_cv.wait(lk, [&] { return results[frame_t].done; });
+
    cv::Mat warped;
+   warper->registerFrame(frame);
    warper->warpImage(frame, warped, Dstore[frame_t]);
+   warper->deregisterFrame(frame);
    return warped;
 }
 
@@ -241,13 +254,13 @@ void FrameWarpAligner::writeRealignmentInfo(std::string filename)
 
    os << "Frame, UnalignedCorrelation, Correlation, Coverage";
    for (int j = 0; j < Dstore[0].size(); j++)
-      os << ", p_" << j;
+      os << ", dx_" << j << ", dy_" << j << ", dz_" << j;
    os << "\n";
    for (int i = 0; i < Dstore.size(); i++)
    {
       os << i << "," << results[i].unaligned_correlation << "," << results[i].correlation << ", " << results[i].coverage;
       for (int j = 0; j < Dstore[i].size(); j++)
-         os << ", " << Dstore[i][j].x << std::showpos << Dstore[i][j].y << std::noshowpos << "i";
+         os << ", " << Dstore[i][j].x << ", " << Dstore[i][j].y << ", " << Dstore[i][j].z;
       os << "\n";
    }
 }

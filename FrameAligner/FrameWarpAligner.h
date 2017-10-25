@@ -72,6 +72,8 @@ protected:
 
    std::list<std::pair<std::vector<cv::Point3d>, cv::Mat>> error_buffer;
 
+   std::mutex align_mutex;
+   std::condition_variable align_cv;
 
    friend class OptimisationModel;
 };
