@@ -32,9 +32,9 @@ protected:
    
    std::unique_ptr<GpuReferenceInformation> gpu_reference;
 
-   std::map<void*,std::shared_ptr<GpuFrame>> frames;
+   std::map<void*, Pool<GpuFrame, int3>::ptr_type> frames;
 
-   std::shared_ptr<GpuFrame> getRegisteredFrame(const cv::Mat& frame);
+   GpuFrame* getRegisteredFrame(const cv::Mat& frame);
    std::vector<float3> D2float3(const std::vector<cv::Point3d>& D);
 
    bool stream_VI = false;
@@ -46,6 +46,7 @@ protected:
    std::mutex mutex;
    std::condition_variable cv;
 
+   Pool<GpuFrame, int3> frame_pool;
    Pool<GpuWorkingSpace,GpuWorkingSpaceParams> pool;
 
 };

@@ -25,10 +25,12 @@ void GpuFrameWarper::registerFrame(const cv::Mat& frame)
 
    try
    {
-      frames[frame.data] = std::make_shared<GpuFrame>(frame);      
+      frames[frame.data] = frame_pool.get();      
+      frames[frame.data]->set(frame);
    }
    catch(std::runtime_error e)
    {
+      std::cout << "Could not allocate frame: " << e.what() << "\n";
       if (max_threads > 1)
          max_threads--; // we obviously don't have enough memory...
       lk.unlock();
@@ -95,7 +97,7 @@ void GpuFrameWarper::setupReferenceInformation()
    max_threads = std::min(max_threads, 16); // only 16 texure refs currently
 
    if (max_threads == 0)
-   throw std::runtime_error("Not enough video memory to use GPU");
+      throw std::runtime_error("Not enough video memory to use GPU");
 
    std::cout << "  > Optimal threads: " << max_threads << "\n";
 
@@ -108,6 +110,8 @@ void GpuFrameWarper::setupReferenceInformation()
    params.range_max = range_max;
    pool.setInit(params);
 
+   
+   frame_pool.setInit({dims[X], dims[Y], dims[Z]});
     
    /*
    if (!stream_VI)
@@ -120,12 +124,12 @@ void GpuFrameWarper::setupReferenceInformation()
 
 }
 
-std::shared_ptr<GpuFrame> GpuFrameWarper::getRegisteredFrame(const cv::Mat& frame)
+GpuFrame* GpuFrameWarper::getRegisteredFrame(const cv::Mat& frame)
 {
    std::lock_guard<std::mutex> lk(mutex);   
    if (frames.count(frame.data) == 0)
       throw std::runtime_error("Unrecognised frame");
-   return frames[frame.data];
+   return frames[frame.data].get();
 }
 
 std::vector<float3> GpuFrameWarper::D2float3(const std::vector<cv::Point3d>& D)
@@ -149,7 +153,7 @@ double GpuFrameWarper::getError(const cv::Mat& frame, const std::vector<cv::Poin
    auto Df = D2float3(D);
 
    checkCudaErrors(cudaMemcpy(w->D, Df.data(), nD*sizeof(float3), cudaMemcpyHostToDevice));
-   return computeError(f.get(), w.get(), gpu_reference.get());
+   return computeError(f, w.get(), gpu_reference.get());
 }
 
 void GpuFrameWarper::getJacobian(const cv::Mat& frame, const std::vector<cv::Point3d>& D, column_vector& jac)
@@ -160,7 +164,7 @@ void GpuFrameWarper::getJacobian(const cv::Mat& frame, const std::vector<cv::Poi
 
    //if (compute_jacobian_on_gpu)
    {
-      std::vector<float3> jacv = computeJacobianGpu(f.get(), w.get(), gpu_reference.get());
+      std::vector<float3> jacv = computeJacobianGpu(f, w.get(), gpu_reference.get());
       
          jac.set_size(nD * n_dim);
          for(int i=0; i<nD; i++)
@@ -207,5 +211,5 @@ void GpuFrameWarper::warpImage(const cv::Mat& frame, cv::Mat& wimg, const std::v
    wimg = cv::Mat(dims, CV_32F);
 
    checkCudaErrors(cudaMemcpy(w->D, Df.data(), nD*sizeof(float3), cudaMemcpyHostToDevice));
-   computeWarp(f.get(), w.get(), gpu_reference.get(), (float*) wimg.data);
+   computeWarp(f, w.get(), gpu_reference.get(), (float*) wimg.data);
 }

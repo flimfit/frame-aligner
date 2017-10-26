@@ -49,8 +49,10 @@ private:
 class GpuFrame
 {
 public:
-   GpuFrame(const cv::Mat& frame);
+   GpuFrame(int3 size);
    ~GpuFrame();
+
+   void set(const cv::Mat& frame);
 
    bool isSame(const cv::Mat& frame_) const { return (frame.data == frame_.data); }
 

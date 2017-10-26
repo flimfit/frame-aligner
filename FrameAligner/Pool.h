@@ -12,7 +12,7 @@ class Pool
 private:
    struct External_Deleter 
    {
-     explicit External_Deleter(std::weak_ptr<Pool<T,U>* > pool_)
+     explicit External_Deleter(std::weak_ptr<Pool<T,U>*> pool_ = std::weak_ptr<Pool<T, U>*>())
          : pool(pool_) {}
  
      void operator()(T* ptr) 

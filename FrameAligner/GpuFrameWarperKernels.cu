@@ -330,16 +330,13 @@ __global__ void warpIntensityPreserving(int tex_id, int3 size, float3 offset, fl
 }
 
 
-GpuFrame::GpuFrame(const cv::Mat& frame_)
+GpuFrame::GpuFrame(int3 size_)
 {
+   size = size_;
+
    // Get texture reference
    auto tex_manager = GpuTextureManager::instance();
    texture = tex_manager->getTextureId();
-
-   // Try and allocate array
-   size.x = frame_.size[2];
-   size.y = frame_.size[1];
-   size.z = frame_.size[0];
 
    // Allocate array and copy image data
    cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<float>();
@@ -361,7 +358,6 @@ GpuFrame::GpuFrame(const cv::Mat& frame_)
    checkCudaErrors(cudaMemGetInfo(&free_mem, &total_mem));
    std::cout << "[Allocating frame] " << (total_mem / (1024 * 1024)) << " / " << (free_mem / (1024 * 1024)) << " Mb\n";
 
-   frame = frame_;
 
    // Set texture parameters
    tex.addressMode[0] = cudaAddressModeBorder;
@@ -369,21 +365,31 @@ GpuFrame::GpuFrame(const cv::Mat& frame_)
    tex.addressMode[2] = cudaAddressModeBorder;
    tex.filterMode = cudaFilterModeLinear;
    tex.normalized = false;
+   
+   // Bind the array to the texture
+   checkCudaErrors(cudaBindTextureToArray(&tex, cu_array, &channelDesc));
+}
+
+void GpuFrame::set(const cv::Mat& frame_)
+{
+   if (frame_.size[2] != size.x || frame_.size[1] != size.y || frame_.size[0] != size.z)
+      throw std::runtime_error("Frame is incorrect size");
+
+   frame = frame_;
 
    // Add 1 to frame value -> we want to use zero as a special case
    cv::Mat frame_cpy;
    frame.copyTo(frame_cpy);
    frame_cpy += 1.0f;
 
-   cudaMemcpy3DParms copy_params = {0};
-   copy_params.srcPtr = make_cudaPitchedPtr((void*) frame_cpy.data, size.x * sizeof(float), size.x, size.y);
+   cudaMemcpy3DParms copy_params = { 0 };
+   cudaExtent extent = make_cudaExtent(size.x, size.y, size.z);
+
+   copy_params.srcPtr = make_cudaPitchedPtr((void*)frame_cpy.data, size.x * sizeof(float), size.x, size.y);
    copy_params.dstArray = cu_array;
    copy_params.extent = extent;
    copy_params.kind = cudaMemcpyHostToDevice;
    checkCudaErrors(cudaMemcpy3D(&copy_params));
-   
-   // Bind the array to the texture
-   checkCudaErrors(cudaBindTextureToArray(&tex, cu_array, &channelDesc));
 }
 
 
