@@ -8,10 +8,10 @@
 template<typename T, typename FP, typename FC>
 void ProducerConsumer(size_t n_producer, FP producer, FC consumer, size_t n)
 {
-   std::map<int, T> buffer;
+   std::map<size_t, T> buffer;
    std::mutex m;
    std::condition_variable cv;
-   std::atomic<int> pi = 0;
+   std::atomic<size_t> pi = 0;
    std::vector<std::future<void>> t_producer;
 
    for(int p=0; p<n_producer; p++)
@@ -27,6 +27,7 @@ void ProducerConsumer(size_t n_producer, FP producer, FC consumer, size_t n)
             cv.notify_all();
 
             // Keep the buffer from getting too large
+            //while(buffer.size() < 5) {};
             //lk.lock();
             //cv.wait(lk, [&] { return buffer.size() < 5; });
             //lk.unlock();
@@ -41,7 +42,6 @@ void ProducerConsumer(size_t n_producer, FP producer, FC consumer, size_t n)
          T obj = buffer[i];
          buffer.erase(i);
          lk.unlock();
-         cv.notify_all();
 
          consumer(i, obj);
       }

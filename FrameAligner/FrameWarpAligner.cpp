@@ -56,7 +56,7 @@ void FrameWarpAligner::smoothStack(const cv::Mat& in, cv::Mat& out)
 
 bool FrameWarpAligner::frameReady(int frame)
 {
-   if (frame >= n_frames) return false;
+   if (frame >= results.size()) return false;
    return (results[frame].done);
 }
 
@@ -151,6 +151,7 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
 
    column_vector x = starting_point[best_start];
    
+   
    try
    {
 	   
@@ -165,11 +166,10 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
       std::cout << e.info;
    }
    
+   
    col2D(x, D, n_dim);
    Dstore[frame_t] = D;
    Dlast = *(D.end() - 2);
-
-   std::cout << "*";
 
    cv::Mat warped_smoothed, warped, mask, intensity_preserving, m;
    warper->warpImage(frame, warped_smoothed, D);

@@ -49,8 +49,6 @@ double OptimisationModel::operator() (const column_vector& x) const
    col2D(x, D, warper->n_dim);
 
    double rms_error = warper->getError(frame, D);
-
-   std::cout << "E: " << rms_error << "\n";
    return rms_error;
 }
 
