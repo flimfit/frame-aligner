@@ -11,7 +11,7 @@ void ProducerConsumer(size_t n_producer, FP producer, FC consumer, size_t n)
    std::map<size_t, T> buffer;
    std::mutex m;
    std::condition_variable cv;
-   std::atomic<size_t> pi = 0;
+   std::atomic<int> pi(0);
    std::vector<std::future<void>> t_producer;
 
    for(int p=0; p<n_producer; p++)
