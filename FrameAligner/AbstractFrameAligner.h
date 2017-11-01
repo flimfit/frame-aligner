@@ -74,6 +74,8 @@ public:
 
    virtual void reprocess() {};
 
+   virtual void clearTemp() {};
+
    RealignmentResult& getResult(int frame)
    {
       if (frame >= n_frames) throw std::runtime_error("Frame index too large");

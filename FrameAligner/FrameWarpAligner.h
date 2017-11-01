@@ -38,6 +38,8 @@ public:
 
    void writeRealignmentInfo(std::string filename);
 
+   void clearTemp();
+
 protected:
 
    void smoothStack(const cv::Mat& in, cv::Mat& out);

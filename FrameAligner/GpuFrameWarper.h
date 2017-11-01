@@ -27,6 +27,8 @@ public:
 
    static bool hasSupportedGpu();
 
+   void clearTemp();
+
 protected:
    void setupReferenceInformation();
    

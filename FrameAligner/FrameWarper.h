@@ -102,6 +102,8 @@ public:
    virtual void registerFrame(const cv::Mat& frame) {};
    virtual void deregisterFrame(const cv::Mat& frame) {};
 
+   virtual void clearTemp() {};
+
 protected:
 
    void precomputeInterp(const ImageScanParameters& image_params);

@@ -124,6 +124,12 @@ void GpuFrameWarper::setupReferenceInformation()
 
 }
 
+void GpuFrameWarper::clearTemp()
+{
+   frame_pool.clear();
+   pool.clear();
+}
+
 GpuFrame* GpuFrameWarper::getRegisteredFrame(const cv::Mat& frame)
 {
    std::lock_guard<std::mutex> lk(mutex);   

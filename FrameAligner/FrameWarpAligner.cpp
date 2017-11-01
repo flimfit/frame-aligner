@@ -72,6 +72,11 @@ void FrameWarpAligner::setNumberOfFrames(int n_frames_)
 }
 
 
+void FrameWarpAligner::clearTemp()
+{
+   warper->clearTemp();
+}
+
 void FrameWarpAligner::setReference(int frame_t, const cv::Mat& reference_)
 {
    output2d = (reference_.dims == 2);

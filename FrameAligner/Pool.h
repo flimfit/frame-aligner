@@ -80,6 +80,13 @@ public:
       cv.notify_all();
    }
 
+   void clear()
+   {
+      std::unique_lock<std::mutex> lk(m);
+      while (!pool.empty())
+         pool.pop();
+   }
+
 private:
    std::shared_ptr<Pool<T,U>* > this_ptr;
    std::stack<std::unique_ptr<T>> pool;
