@@ -277,11 +277,14 @@ __global__ void warp(WarpParams w, float* warp_img, int z)
    int y = threadIdx.y + blockDim.y * blockIdx.y;   
    int idx = x + y * w.size.x;
 
-   float3 p = warpPoint(w.nD, w.D, w.offset, x, y, z);
-   p.x += x; p.y += y; p.z += z;
-   float v = getPoint(w.tex_id, p);
+   if ((x < w.size.x) && (y < w.size.y))
+   {
+      float3 p = warpPoint(w.nD, w.D, w.offset, x, y, z);
+      p.x += x; p.y += y; p.z += z;
+      float v = getPoint(w.tex_id, p);
 
-   warp_img[idx] = (v != 0.0f) * (v - 1.0f);
+      warp_img[idx] = (v != 0.0f) * (v - 1.0f);
+   }
 }
 
 
@@ -293,13 +296,16 @@ __global__ void warpAndGetError(int tex_id, int3 size, float3 offset, float* __r
    int z = threadIdx.z + blockDim.z * blockIdx.z;
    int idx = x + y * size.x + z * (size.x * size.y);
 
-   float3 p = warpPoint(nD, D, offset, x, y, z);
-   p.x += x; p.y += y; p.z += z;
-   float v = getPoint(tex_id, p);
+   if ((x < size.x) && (y < size.y))
+   {
+      float3 p = warpPoint(nD, D, offset, x, y, z);
+      p.x += x; p.y += y; p.z += z;
+      float v = getPoint(tex_id, p);
 
-   float mask = (v != 0.0f) ? 1.0f : 0.0f; // set out of range values to zero
-   v -= (1.0f + reference[idx]); // we have added 1 to use zero as special case
-   error_img[idx] = mask * v; 
+      float mask = (v != 0.0f) ? 1.0f : 0.0f; // set out of range values to zero
+      v -= (1.0f + reference[idx]); // we have added 1 to use zero as special case
+      error_img[idx] = mask * v;
+   }
 }
 
 __global__ void warpIntensityPreserving(int tex_id, int3 size, float3 offset, float* warp_img, uint16_t* mask_img, int nD, float3* D)
@@ -467,7 +473,7 @@ void computeWarp(GpuFrame* frame, GpuWorkingSpace* w, GpuReferenceInformation* g
    int nxny = size.x * size.y;
 
    dim3 dimBlock(32, 32, 1);
-   dim3 dimGrid(size.x / 32, size.y / 32, size.z);
+   dim3 dimGrid((size.x-1) / 32 + 1, (size.y-1) / 32 + 1, 1);
 
    for(int z=0; z<size.z; z++)
    {
