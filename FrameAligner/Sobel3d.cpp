@@ -61,13 +61,13 @@ void sobel3d(cv::Mat m, cv::Mat& gx, cv::Mat& gy, cv::Mat& gz)
 {
    cv::Mat a(m.dims, m.size, m.type()), b(m.dims, m.size, m.type()), c(m.dims, m.size, m.type());
 
-   std::array<float, 3> a1 = { 1.0/4.0, 2.0/4.0, 1.0/4.0 };
-   std::array<float, 2> a2 = { 2.0/3.0, 2.0/3.0 };
-   std::array<float, 2> a3 = { 2.0 / 3.0, 2.0 / 3.0 };
+   std::array<float, 3> a1 = { 1.0f/4.0f, 2.0f/4.0f, 1.0f/4.0f };
+   std::array<float, 2> a2 = { 2.0f/3.0f, 2.0f/3.0f };
+   std::array<float, 2> a3 = { 2.0f / 3.0f, 2.0f / 3.0f };
 
-   std::array<float, 3> s1 = { -0.5, 0, 0.5 };
-   std::array<float, 2> s2 = { -0.5, 0.5 };
-   std::array<float, 2> s3 = { 0.5, -0.5 };
+   std::array<float, 3> s1 = { -0.5f, 0.0f, 0.5f };
+   std::array<float, 2> s2 = { -0.5f, 0.5f };
+   std::array<float, 2> s3 = { 0.5f, -0.5f };
 
 
    applyXFilter(m, a, a1, a2, a3);
