@@ -93,10 +93,10 @@ void GpuFrameWarper::setupReferenceInformation()
    dims[X] * dims[Y] * sizeof(float) * 2; // storage for warp
    size_t frame_size = volume * sizeof(float);
 
-   max_threads = (free_mem - 128 * 1024 * 1024) / (frame_size + working_space_size); // leave a bit of free space
+   max_threads = (free_mem - 32 * 1024 * 1024) / (frame_size + working_space_size); // leave a bit of free space
    max_threads = std::min(max_threads, 16); // only 16 texure refs currently
 
-   if (max_threads == 0)
+   if (max_threads <= 0)
       throw std::runtime_error("Not enough video memory to use GPU");
 
    std::cout << "  > Optimal threads: " << max_threads << "\n";

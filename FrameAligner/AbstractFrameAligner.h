@@ -26,6 +26,7 @@ public:
    double smoothing = 0;
    double correlation_threshold = 0;
    double coverage_threshold = 0;
+   bool prefer_gpu = true;
 
    bool use_realignment() { return type != RealignmentType::None; }
    bool use_rotation() { return type == RealignmentType::RigidBody; }
