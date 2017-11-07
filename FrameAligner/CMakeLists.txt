@@ -7,13 +7,12 @@ find_package(OpenCV 3.1 REQUIRED core imgproc imgcodecs videoio)
 find_package(FFTW)
 find_package(CUDA)
 find_package(TIFF)
-#find_package(dlib REQUIRED)
+find_package(dlib REQUIRED)
 
 if(APPLE)
     set(EXTRA_LIBRARIES "-framework Accelerate") # for dlib
 endif()
 
-set(dlib_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/dlib)
 message(dlib: ${dlib_INCLUDE_DIRS})
 
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -std=c++11 -arch=sm_30")
