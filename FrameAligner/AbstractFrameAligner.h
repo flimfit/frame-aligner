@@ -3,6 +3,13 @@
 #include <memory>
 #include "ImageScanParameters.h"
 
+enum class DefaultReferenceFrame
+{
+   FirstFrame = 0,
+   MiddleFrame = 1,
+   LastFrame = 2
+};
+
 enum class RealignmentType
 {
    None        = 0,
@@ -27,6 +34,7 @@ public:
    double correlation_threshold = 0;
    double coverage_threshold = 0;
    bool prefer_gpu = true;
+   DefaultReferenceFrame default_reference_frame = DefaultReferenceFrame::FirstFrame;
 
    bool use_realignment() { return type != RealignmentType::None; }
    bool use_rotation() { return type == RealignmentType::RigidBody; }
