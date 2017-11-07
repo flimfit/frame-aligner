@@ -349,9 +349,6 @@ cv::Point3d AbstractFrameWarper::warpPoint(const std::vector<cv::Point3d>& D, in
    double f = Df_d[loc];
    int i = Di_d[loc];
 
-   if (i >= (nD-1))
-      int a = 1;
-
    cv::Point3d p = f * D[i + 1] + (1 - f) * D[i];
    p *= factor;
 

@@ -158,8 +158,11 @@ GpuTextureManager::GpuTextureManager()
       free_textures.push_back(i);
 }
 
-__device__ float3 warpPoint(int nD, const float3* D, float3 offset, int x, int y, int z)
+__device__ float3 warpPoint(int nD, const float3* D, float3 offset, int x, int y, int z, int n_x, bool bidirectional)
 {
+   if (bidirectional && ((y % 2) == 1))
+      x = n_x - x - 1;
+
    float Didx = (x * offset.x + y * offset.y + z * offset.z) * (nD-1);
    int idx = Didx; // => floor
    float f = Didx - idx;
@@ -205,7 +208,7 @@ __device__ float warpAndGetError(WarpParams w, int idx)
    int y = iy % w.size.y;
    int z = iy / w.size.y;
 
-   float3 p = warpPoint(w.nD, w.D, w.offset, x, y, z);
+   float3 p = warpPoint(w.nD, w.D, w.offset, x, y, z, w.size.x, w.bidirectional);
    p.x += x; p.y += y; p.z += z;
    float v = getPoint(w.tex_id, p);
 
@@ -279,7 +282,7 @@ __global__ void warp(WarpParams w, float* warp_img, int z)
 
    if ((x < w.size.x) && (y < w.size.y))
    {
-      float3 p = warpPoint(w.nD, w.D, w.offset, x, y, z);
+      float3 p = warpPoint(w.nD, w.D, w.offset, x, y, z, w.size.x, w.bidirectional);
       p.x += x; p.y += y; p.z += z;
       float v = getPoint(w.tex_id, p);
 
@@ -288,7 +291,7 @@ __global__ void warp(WarpParams w, float* warp_img, int z)
 }
 
 
-
+/*
 __global__ void warpAndGetError(int tex_id, int3 size, float3 offset, float* __restrict__ reference, float* __restrict__ error_img, int nD, float3* D)
 {
    int x = threadIdx.x + blockDim.x * blockIdx.x;
@@ -298,7 +301,7 @@ __global__ void warpAndGetError(int tex_id, int3 size, float3 offset, float* __r
 
    if ((x < size.x) && (y < size.y))
    {
-      float3 p = warpPoint(nD, D, offset, x, y, z);
+      float3 p = warpPoint(nD, D, offset, x, y, z, size.x);
       p.x += x; p.y += y; p.z += z;
       float v = getPoint(tex_id, p);
 
@@ -318,7 +321,7 @@ __global__ void warpIntensityPreserving(int tex_id, int3 size, float3 offset, fl
    p0.x = x; p0.y = y; p0.z = z;
    float v = getPoint(tex_id, p0);
 
-   float3 p = warpPoint(nD, D, offset, x, y, z);
+   float3 p = warpPoint(nD, D, offset, x, y, z, size.x);
    p0 -= p;
 
    x = round(p0.x);
@@ -334,7 +337,7 @@ __global__ void warpIntensityPreserving(int tex_id, int3 size, float3 offset, fl
       mask_img[idx]++;   
    }
 }
-
+*/
 
 GpuFrame::GpuFrame(int3 size_)
 {
@@ -463,6 +466,7 @@ WarpParams getWarpParams(GpuFrame* frame, GpuWorkingSpace* w, GpuReferenceInform
    p.reference = gpu_ref->reference;
    p.nD = gpu_ref->nD;
    p.D = w->D;
+   p.bidirectional = gpu_ref->bidirectional;
    return p;
 }
 

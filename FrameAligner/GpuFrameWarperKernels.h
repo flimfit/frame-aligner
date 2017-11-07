@@ -110,6 +110,7 @@ public:
    int nD = 0;
    int range_max = 0;
    bool stream_VI = false;
+   bool bidirectional = false;
 };
 
 struct WarpParams
@@ -120,6 +121,7 @@ struct WarpParams
    float* reference;
    int nD;
    float3* D;
+   bool bidirectional;
 };
 
 void computeWarp(GpuFrame* frame, GpuWorkingSpace* w, GpuReferenceInformation* gpu_ref, float* warp);

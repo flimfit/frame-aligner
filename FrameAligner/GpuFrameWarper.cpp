@@ -62,10 +62,11 @@ void GpuFrameWarper::setupReferenceInformation()
    range_max = std::max_element(VI_dW_dp.begin(), VI_dW_dp.end(), [](auto& a, auto& b) { return a.size() < b.size(); })->size();
 
    gpu_reference = std::make_unique<GpuReferenceInformation>(reference, offset, nD, range_max, stream_VI);
-
-   float3* VI_dW_dp_host = gpu_reference->VI_dW_dp_host;
-   gpu_reference->range.resize(nD);
+   gpu_reference->bidirectional = image_params.bidirectional;
    
+   float3* VI_dW_dp_host = gpu_reference->VI_dW_dp_host;
+   gpu_reference->range.resize(nD);   
+
    for (int i = 0; i < nD; i++)
    {
       auto& dp = VI_dW_dp[i];
@@ -83,6 +84,7 @@ void GpuFrameWarper::setupReferenceInformation()
 
 
    // Determine how many threads we can support
+   /*
    size_t free_mem, total_mem;
    checkCudaErrors(cudaMemGetInfo(&free_mem, &total_mem));
    std::cout << "GPU Memory (total/free) : " << (total_mem / (1024 * 1024)) << " / " << (free_mem / (1024 * 1024)) << " Mb\n";
@@ -100,7 +102,9 @@ void GpuFrameWarper::setupReferenceInformation()
       throw std::runtime_error("Not enough video memory to use GPU");
 
    std::cout << "  > Optimal threads: " << max_threads << "\n";
+   */
 
+   max_threads = 4;
    
    // Setup working space
 
