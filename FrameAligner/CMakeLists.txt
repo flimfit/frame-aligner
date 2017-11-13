@@ -13,8 +13,6 @@ if(APPLE)
     set(EXTRA_LIBRARIES "-framework Accelerate") # for dlib
 endif()
 
-message(dlib: ${dlib_INCLUDE_DIRS})
-
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -std=c++11 -arch=sm_30")
 
 include_directories(${Boost_INCLUDE_DIR} ${OpenCV_INCLUDE_DIRS} ${dlib_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} ${CUDA_INCLUDE_DIRS})
@@ -49,8 +47,8 @@ set(HEADERS
    GpuTextureManager.h
 )
 
-set(FrameAligner_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR} ${OpenCV_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} ${dlib_INCLUDE_DIRS} ${CUDA_INCLUDE_DIRS} PARENT_SCOPE)
-set(FrameAligner_LIBRARIES ${OpenCV_LIBS} ${EXTRA_LIBRARIES} ${TIFF_LIBRARIES} ${FFTW_LIBRARIES} ${dlib_LIBRARIES} PARENT_SCOPE)
+set(FrameAligner_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR} ${OpenCV_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} ${CUDA_INCLUDE_DIRS} PARENT_SCOPE)
+set(FrameAligner_LIBRARIES ${OpenCV_LIBS} ${EXTRA_LIBRARIES} ${TIFF_LIBRARIES} ${FFTW_LIBRARIES} dlib::dlib PARENT_SCOPE)
 add_library(FrameAligner STATIC ${SOURCE} ${HEADERS})
 
 target_link_libraries(FrameAligner ${FrameAligner_LIBRARIES})
