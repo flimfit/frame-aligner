@@ -67,7 +67,7 @@ void FrameWarpAligner::setNumberOfFrames(int n_frames_)
    Dstore.clear();
    results.clear();
    
-   Dstore.resize(n_frames, std::vector<cv::Point3d>(nD));
+   Dstore.resize(n_frames);
    results.resize(n_frames);
 }
 
@@ -98,7 +98,7 @@ void FrameWarpAligner::setReference(int frame_t, const cv::Mat& reference_)
    cv::Mat f = downsample(reference, phase_downsampling);
    phase_correlator->setReference((float*) f.data);
 
-   nD = realign_params.n_resampling_points;
+   nD = realign_params.n_resampling_points * image_params.n_z;
 
    warper->setReference(smoothed_reference, nD, image_params);
    if (alt_warper)
