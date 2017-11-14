@@ -84,7 +84,6 @@ void GpuFrameWarper::setupReferenceInformation()
 
 
    // Determine how many threads we can support
-   /*
    size_t free_mem, total_mem;
    checkCudaErrors(cudaMemGetInfo(&free_mem, &total_mem));
    std::cout << "GPU Memory (total/free) : " << (total_mem / (1024 * 1024)) << " / " << (free_mem / (1024 * 1024)) << " Mb\n";
@@ -101,10 +100,7 @@ void GpuFrameWarper::setupReferenceInformation()
    if (max_threads <= 0)
       throw std::runtime_error("Not enough video memory to use GPU");
 
-   std::cout << "  > Optimal threads: " << max_threads << "\n";
-   */
-
-   max_threads = 4;
+   std::cout << "  > Enough GPU memory for " << max_threads << " threads\n";
    
    // Setup working space
 
