@@ -1,4 +1,5 @@
 #include "Cv3dUtils.h"
+#include "WriteMultipageTiff.h"
 #include <opencv2/imgcodecs/imgcodecs.hpp>
 #include "LinearInterpolation.h"
 
@@ -15,27 +16,37 @@ cv::Mat extractSlice(const cv::Mat& m, int slice)
 
 int area(const cv::Mat& m)
 {
-   int area = 1;
+   int area = (m.dims > 0) ? 1 : 0;
    for(int i=0; i<m.dims; i++)
       area *= m.size[i];
    return area;
 }
 
-void writeScaledImage(const std::string& filename, const cv::Mat& intensity)
+void writeScaledImage(const std::string& filename, const cv::Mat& intensity_)
 {
-   double mn, mx;
-   cv::minMaxLoc(intensity, &mn, &mx);
+   cv::Mat intensity = intensity_;
+   if (intensity.dims == 2)
+   {
+      std::vector<int> dims = { 1, intensity.size[0], intensity.size[1] };
+      intensity.reshape(3, dims);
+   }
 
    cv::Scalar mean, std;
    cv::meanStdDev(intensity, mean, std);
    double i_max = mean[0] + 1.96 * std[0]; // 97.5% 
 
+   std::vector<cv::Mat> stack;
+
    cv::Mat output;
-   intensity.convertTo(output, CV_8U, 255.0 / i_max);
-   
-   #ifndef SUPPRESS_OPENCV_HIGHGUI
-            cv::imwrite(filename, output);
-   #endif
+   for (int z = 0; z < intensity.size[Z]; z++)
+   {
+      cv::Mat slice = extractSlice(intensity, z);
+      slice.convertTo(output, CV_8U, 255.0 / i_max);
+      stack.push_back(output);
+   }
+
+   writeMultipageTiff(filename, stack);
+
 }
 
 double correlation(cv::Mat &image_1, cv::Mat &image_2, cv::Mat &mask)

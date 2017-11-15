@@ -18,7 +18,6 @@ find_package(OpenCV REQUIRED)
 find_package(dlib REQUIRED)
 set_target_properties(${OpenCV_LIBS} PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO RELEASE)
 
-find_package(OpenMP REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 set(CMAKE_DEBUG_POSTFIX "")
 
@@ -30,7 +29,7 @@ set(HEADERS
    MexUtils.h
 )
 
-matlab_add_mex(NAME FrameAlignerMex SRC ${SOURCE} ${HEADERS} $<TARGET_OBJECTS:FrameAligner>)
+matlab_add_mex(NAME FrameAlignerMex SRC ${SOURCE} ${HEADERS})
 
 include_directories(${FrameAligner_INCLUDE_DIRS})
 target_link_libraries(FrameAlignerMex ${FrameAligner_LIBRARIES})

@@ -4,8 +4,7 @@
 #include <fftw3.h>
 #include <vector>
 #include <opencv2/opencv.hpp>
-#include <stack>
-#include <mutex>
+#include "Pool.h"
 
 class CorrelatorPlan
 {
@@ -19,40 +18,6 @@ public:
    std::vector<std::complex<double> > out;
 };
 
-template<class T, class U>
-class Pool
-{
-public:
-
-   Pool(const U& init) : init(init)
-   { 
-      pool.push( std::make_unique<T>(init) );
-   }
-
-   std::unique_ptr<T> get()
-   {
-      std::lock_guard<std::mutex> lk(m);
-      
-      if (pool.empty())
-         return std::make_unique<T>(init);
-      
-      auto tmp = std::move(pool.top());
-      pool.pop();
-      
-      return tmp;
-   }
-
-   void release(std::unique_ptr<T> el)
-   {
-      std::lock_guard<std::mutex> lk(m);
-      pool.push(std::move(el));
-   }
-
-private:
-   std::stack<std::unique_ptr<T>> pool;
-   std::mutex m;
-   U init;
-};
 
 class VolumePhaseCorrelator
 {

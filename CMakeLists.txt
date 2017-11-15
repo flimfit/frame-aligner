@@ -12,7 +12,6 @@ HunterGate(
 project(FrameAligner)
 
 hunter_add_package(OpenCV)
-hunter_add_package(dlib)
 
 option(GENERATE_MEX "Generate Frame Aligner Mex file" ON)
 
