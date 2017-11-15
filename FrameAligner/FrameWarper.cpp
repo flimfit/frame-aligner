@@ -81,8 +81,8 @@ void CpuFrameWarper::warpImage(const cv::Mat& img, cv::Mat& wimg, const std::vec
 void AbstractFrameWarper::warpImageIntensityPreserving(const cv::Mat& img, cv::Mat& wimg, cv::Mat& coverage, const std::vector<cv::Point3d>& D)
 
 {
-   wimg = cv::Mat(dims, CV_16U, cv::Scalar(0));
-   coverage = cv::Mat(dims, CV_16U, cv::Scalar(0));
+   wimg = cv::Mat(dims, CV_8U, cv::Scalar(0));
+   coverage = cv::Mat(dims, CV_8U, cv::Scalar(0));
    
    for (int z = 0; z < dims[Z]; z++)
       for (int y = 0; y < dims[Y]; y++)
@@ -96,8 +96,8 @@ void AbstractFrameWarper::warpImageIntensityPreserving(const cv::Mat& img, cv::M
                
             if (isValidPoint(locr, dims))
             {
-               wimg.at<uint16_t>(locr) += img.at<float>(z, y, x);
-               coverage.at<uint16_t>(locr)++;               
+               wimg.at<uint8_t>(locr) += img.at<float>(z, y, x);
+               coverage.at<uint8_t>(locr)++;               
             }
          }
 }

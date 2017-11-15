@@ -195,7 +195,7 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
    RealignmentResult r;
    r.frame = reshapeForOutput(raw_frame, CV_8U);
    r.realigned = reshapeForOutput(warped, CV_8U);
-   r.mask = reshapeForOutput(mask, CV_16U);
+   r.mask = reshapeForOutput(mask, CV_8U);
    r.correlation = correlation(warped_smoothed, smoothed_reference, m);
    r.unaligned_correlation = correlation(frame, smoothed_reference, m);
    r.coverage = ((double)cv::countNonZero(mask)) / (dims[X] * dims[Y] * dims[Z]);
