@@ -89,7 +89,8 @@ cv::Point3d VolumePhaseCorrelator::computeShift(const float* volume)
       } 
    }
 
-   // Compute peak index - could interpolate here
+
+   // Compute peak index
    int x = idx % dims[X];
    int y = (idx / dims[X]) % dims[Y];
    int z = (idx / (dims[X] * dims[Y])) % dims[Z];
@@ -97,8 +98,41 @@ cv::Point3d VolumePhaseCorrelator::computeShift(const float* volume)
    if (x > dims[X]/2) x -= dims[X];
    if (y > dims[Y]/2) y -= dims[Y];
    if (z > dims[Z]/2) z -= dims[Z];
+
+
+   // Compute subpixel interpolation of peak centre
+   double xw = 0, yw = 0, zw = 0, w = 0;
+   const int c = 2;
+   for (int dz = -c; dz <= c; dz++)
+      for (int dy = -c; dy <= c; dy++)
+         for (int dx = -c; dx < c; dx++)
+         {
+            int x1 = x + dx;
+            int y1 = y + dy;
+            int z1 = z + dz;
+
+            if (x1 < 0) x1 += dims[X];
+            if (y1 < 0) y1 += dims[Y];
+            if (z1 < 0) z1 += dims[Z];
+
+            if ((x1 >= 0) && (x1 < dims[X]) && 
+                (y1 >= 0) && (y1 < dims[Y]) &&
+                (z1 >= 0) && (z1 < dims[Z]))
+            {
+               int idx = x1 + y1 * dims[X] + z1 * dims[X] * dims[Y];
+               double v = p->in[idx];
+               xw += dx * v;
+               yw += dy * v;
+               zw += dz * v;
+               w += v;
+            }
+         }
    
-   return cv::Point3d(x, y, z);
+   double xf = x + xw / w;
+   double yf = y + yw / w;
+   double zf = z + zw / w;
+
+   return cv::Point3d(xf, yf, zf);
 }
 
 void VolumePhaseCorrelator::computeWindow()
