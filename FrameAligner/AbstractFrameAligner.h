@@ -14,8 +14,7 @@ enum class RealignmentType
 {
    None        = 0,
    Translation = 1,
-   RigidBody   = 2,
-   Warp        = 3
+   Warp        = 2
 };
 
 std::string realignmentTypeString(RealignmentType t);
@@ -37,7 +36,7 @@ public:
    DefaultReferenceFrame default_reference_frame = DefaultReferenceFrame::FirstFrame;
 
    bool use_realignment() { return type != RealignmentType::None; }
-   bool use_rotation() { return type == RealignmentType::RigidBody; }
+   bool use_rotation() { return false; } //{ return type == RealignmentType::RigidBody; }
 };
 
 class RealignmentResult

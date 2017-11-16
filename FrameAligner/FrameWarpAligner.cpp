@@ -81,13 +81,11 @@ void FrameWarpAligner::setReference(int frame_t, const cv::Mat& reference_)
 {
    output2d = (reference_.dims == 2);
 
-   n_x_binned = image_params.n_x / realign_params.spatial_binning;
-   n_y_binned = image_params.n_y / realign_params.spatial_binning;
-
-   dims = {image_params.n_z, n_y_binned, n_x_binned};
+   dims = {image_params.n_z, image_params.n_y, image_params.n_x};
    n_dim = (image_params.n_z > 1) ? 3 : 2;
 
-   phase_correlator = std::unique_ptr<VolumePhaseCorrelator>(new VolumePhaseCorrelator(dims[Z], dims[Y] / 4, dims[X] / 4));   
+   phase_downsampling = realign_params.spatial_binning;
+   phase_correlator = std::unique_ptr<VolumePhaseCorrelator>(new VolumePhaseCorrelator(dims[Z], dims[Y] / phase_downsampling, dims[X] / phase_downsampling));
 
    reference_.copyTo(reference);
    reference.convertTo(reference, CV_32F);
@@ -142,6 +140,7 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
    //D2col(D, starting_point[1], n_dim);
 
    // rigid starting point
+
    cv::Mat ff = downsample(raw_frame, phase_downsampling);
    cv::Point3d rigid_shift = phase_correlator->computeShift((float*) ff.data);
    rigid_shift.x *= phase_downsampling;
@@ -157,18 +156,21 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
    column_vector x = starting_point[best_start];
    
    
-   try
+   if (realign_params.type == RealignmentType::Warp)
    {
-	   
-      find_min_trust_region(dlib::objective_delta_stop_strategy(1e-2),
-         model,
-         x,
-         40 // initial trust region radius
-      );
-   }
-   catch (dlib::error e)
-   {
-      std::cout << e.info;
+      try
+      {
+
+         find_min_trust_region(dlib::objective_delta_stop_strategy(1e-2),
+            model,
+            x,
+            40 // initial trust region radius
+         );
+      }
+      catch (dlib::error e)
+      {
+         std::cout << e.info;
+      }
    }
    
    

@@ -10,8 +10,8 @@ std::string realignmentTypeString(RealignmentType t)
       return "None";
    case RealignmentType::Translation:
       return "Translation";
-   case RealignmentType::RigidBody:
-      return "RigidBody";
+   //case RealignmentType::RigidBody:
+   //   return "RigidBody";
    case RealignmentType::Warp:
       return "Warp";
    default:
@@ -26,10 +26,11 @@ AbstractFrameAligner* AbstractFrameAligner::createFrameAligner(RealignmentParame
    {
    case RealignmentType::None:
       return nullptr;
-   case RealignmentType::Warp:
+   //case RealignmentType::RigidBody:
+   //   throw std::runtime_error("Rigid body is not currently supported");
+   default:
       return new FrameWarpAligner(params);
-   default: // handles both Translation and RigidBody
-      return new RigidFrameAligner(params);
+      // Let FrameWarpAligner handle translation as well, not supporting rigid body currently
    }
 }
 

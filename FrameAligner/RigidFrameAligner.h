@@ -41,7 +41,7 @@ public:
       return frames_complete == n_frames;
    }
 
-   RealignmentType getType() { return realign_params.use_rotation() ? RealignmentType::RigidBody : RealignmentType::Translation; };
+   RealignmentType getType() { return realign_params.type; };
 
    void setReference(int frame_t, const cv::Mat& reference_);
    RealignmentResult addFrame(int frame_t, const cv::Mat& frame); 
