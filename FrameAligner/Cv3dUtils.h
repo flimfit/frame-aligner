@@ -1,9 +1,9 @@
 #pragma once
 #include <opencv2/opencv.hpp>
 
-#define X 2
-#define Y 1
-#define Z 0
+extern const int X;
+extern const int Y;
+extern const int Z;
 
 
 cv::Mat extractSlice(const cv::Mat& m, int slice);

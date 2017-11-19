@@ -3,6 +3,11 @@
 #include <opencv2/imgcodecs/imgcodecs.hpp>
 #include "LinearInterpolation.h"
 
+const int X = 2;
+const int Y = 1;
+const int Z = 0;
+
+
 cv::Mat extractSlice(const cv::Mat& m, int slice)
 {
    if (!((m.dims == 3) && (slice < m.size[0])))
