@@ -96,7 +96,7 @@ void FrameWarpAligner::setReference(int frame_t, const cv::Mat& reference_)
    cv::Mat f = downsample(reference, phase_downsampling);
    phase_correlator->setReference((float*) f.data);
 
-   nD = realign_params.n_resampling_points * image_params.n_z;
+   nD = realign_params.n_resampling_points * image_params.n_z - 1;
 
    warper->setReference(smoothed_reference, nD, image_params);
    if (alt_warper)
