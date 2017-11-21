@@ -128,9 +128,9 @@ cv::Point3d VolumePhaseCorrelator::computeShift(const float* volume)
             }
          }
    
-   double xf = x + xw / w;
-   double yf = y + yw / w;
-   double zf = z + zw / w;
+   double xf = x ;//+ xw / w;
+   double yf = y ;//+ yw / w;
+   double zf = z ;//+ zw / w;
 
    return cv::Point3d(xf, yf, zf);
 }
