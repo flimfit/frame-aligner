@@ -6,6 +6,9 @@
 #include <fstream>
 #include <algorithm>
 
+const bool FrameWarpAligner::supress_hotspots = false;
+
+
 FrameWarpAligner::FrameWarpAligner(RealignmentParameters params)
 {
    realign_params = params;
@@ -13,8 +16,6 @@ FrameWarpAligner::FrameWarpAligner(RealignmentParameters params)
       warper = std::make_shared<GpuFrameWarper>();
    else
       warper = std::make_shared<CpuFrameWarper>();
-
-   alt_warper = std::make_shared<CpuFrameWarper>();
 }
 
 cv::Mat FrameWarpAligner::reshapeForOutput(cv::Mat& m, int type)
@@ -85,23 +86,24 @@ void FrameWarpAligner::setReference(int frame_t, const cv::Mat& reference_)
    n_dim = (image_params.n_z > 1) ? 3 : 2;
 
    phase_downsampling = realign_params.spatial_binning;
-   phase_correlator = std::unique_ptr<VolumePhaseCorrelator>(new VolumePhaseCorrelator(dims[Z], dims[Y] / phase_downsampling, dims[X] / phase_downsampling));
 
    reference_.copyTo(reference);
    reference.convertTo(reference, CV_32F);
-
-   reference = reshapeForProcessing(reference);   
+   reference = reshapeForProcessing(reference);
    smoothStack(reference, smoothed_reference);
 
-   cv::Mat f = downsample(reference, phase_downsampling);
-   phase_correlator->setReference((float*) f.data);
+   cv::Mat reference_downsampled = downsample(reference, phase_downsampling);
+   auto downsampled_size = reference_downsampled.size;
 
-   nD = realign_params.n_resampling_points * image_params.n_z - 1;
+   phase_correlator = std::unique_ptr<VolumePhaseCorrelator>(new VolumePhaseCorrelator(downsampled_size[Z], downsampled_size[Y], downsampled_size[X]));
+
+
+   phase_correlator->setReference((float*) reference_downsampled.data);
+
+   nD = realign_params.n_resampling_points * image_params.n_z + 1;
 
    warper->setReference(smoothed_reference, nD, image_params);
-   if (alt_warper)
-      alt_warper->setReference(smoothed_reference, nD, image_params);
-
+   
    Dlast = cv::Point3d(0, 0, 0);
 }
 
@@ -118,17 +120,30 @@ void FrameWarpAligner::reprocess()
 RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_frame_)
 {
    cv::Mat raw_frame, frame;
-   raw_frame_.copyTo(raw_frame);
-
-   raw_frame.convertTo(raw_frame, CV_32F);
+   raw_frame_.convertTo(raw_frame, CV_32F);
 
    raw_frame = reshapeForProcessing(raw_frame);
+
+   if (supress_hotspots)
+      for (int z = 0; z < dims[Z]; z++)
+      {
+         cv::Mat slice = extractSlice(raw_frame, z);
+         cv::Mat ref_slice = extractSlice(reference, z);
+
+         double mn, mx;
+         cv::minMaxIdx(ref_slice, &mn, &mx);
+         for (int i = 0; i < dims[X] * dims[Y]; i++)
+            if (slice.at<float>(i) > mx)
+               slice.at<float>(i) = 0;
+      }
+
+
    smoothStack(raw_frame, frame);
 
    warper->registerFrame(frame);
    auto model = OptimisationModel(warper, frame);
 
-   std::vector<column_vector> starting_point(2, column_vector(nD * n_dim));
+   std::vector<column_vector> starting_point(3, column_vector(nD * n_dim));
 
    // zero starting point
    std::fill(starting_point[0].begin(), starting_point[0].end(), 0);
@@ -141,13 +156,34 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
 
    // rigid starting point
 
-   cv::Mat ff = downsample(raw_frame, phase_downsampling);
-   cv::Point3d rigid_shift = phase_correlator->computeShift((float*) ff.data);
-   rigid_shift.x *= phase_downsampling;
-   rigid_shift.y *= phase_downsampling;
-   std::vector<cv::Point3d> D_rigid(nD, rigid_shift);
+   cv::Mat downsampled = downsample(raw_frame, phase_downsampling);
+   cv::Mat zframe = downsampled.clone();
+   std::vector<cv::Point3d> D_rigid_z(dims[Z]);
+   std::vector<cv::Point3d> D_rigid(nD);
+
+   int idx = 0;
+   for (int z = 0; z < dims[Z]; z++)
+   {
+      zframe.setTo(0);
+      for(int zf = std::max(0, z - 2); zf <= std::min(dims[Z], z + 2); zf++)
+         extractSlice(downsampled, zf).copyTo(extractSlice(zframe, zf));
+      cv::Point3d rigid_shift = phase_correlator->computeShift((float*)zframe.data);
+      rigid_shift.x *= phase_downsampling;
+      rigid_shift.y *= phase_downsampling;
+      D_rigid_z[z] = rigid_shift;
+
+      int n = realign_params.n_resampling_points + (z == 0);
+      for (int i = 0; i < n; i++)
+         D_rigid[idx++] = rigid_shift;
+   }
    D2col(D_rigid, starting_point[1], n_dim);
-   
+
+
+   cv::Point3d rigid_shift = phase_correlator->computeShift((float*)downsampled.data);
+   std::vector<cv::Point3d> D_rigid_volume(nD, rigid_shift);
+   D2col(D_rigid_volume, starting_point[2], n_dim);
+
+
    // Find best starting point
    std::vector<double> starting_point_eval(starting_point.size());
    std::transform(starting_point.begin(), starting_point.end(), starting_point_eval.begin(), [&](auto p)->auto { return model(p); });
@@ -253,6 +289,7 @@ void FrameWarpAligner::writeRealignmentInfo(std::string filename)
    
    std::ofstream os(filename);
    
+   os << "Realignment Information Version, 2\n";
    os << "Line Duration," << image_params.line_duration << "\n";
    os << "Interline Duration," << image_params.interline_duration << "\n";
    os << "Frame Duration," << image_params.frame_duration << "\n";

@@ -11,11 +11,11 @@ bool isValidPoint(const cv::Point3_<T>& pt, const std::vector<int>& dims)
    int validXY = 
          (pt.x >= 0) &&
          (pt.y >= 0) && 
-         (pt.x < (dims[X] - 1)) &&
-         (pt.y < (dims[Y] - 1));
+         (pt.x <= (dims[X] - 1)) &&
+         (pt.y <= (dims[Y] - 1));
 
    if (dims[Z] > 1)
-      return validXY && (pt.z >= 0) && (pt.z < (dims[Z] - 1));
+      return validXY && (pt.z >= 0) && (pt.z <= (dims[Z] - 1));
    else 
       return validXY;            
 }

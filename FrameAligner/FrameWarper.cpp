@@ -36,8 +36,12 @@ void CpuFrameWarper::warpImage(const cv::Mat& img, cv::Mat& wimg, const std::vec
       for (int y = 0; y < dims[Y]; y++)
          for (int x = 0; x < dims[X]; x++)
          {
+
             cv::Point3d loc = warpPoint(D, x, y, z);
-            loc += cv::Point3d(x,y,z);
+            loc += cv::Point3d(x, y, z);
+
+            cv::Point3i loc0(floor(loc.x), floor(loc.y), floor(loc.z));
+            cv::Point3d locf(loc.x - loc0.x, loc.y - loc0.y, loc.z - loc0.z);
 
             // Clamp values slightly outside range
             if ((loc.x < 0) && (loc.x > -1)) loc.x = 0;
@@ -47,9 +51,6 @@ void CpuFrameWarper::warpImage(const cv::Mat& img, cv::Mat& wimg, const std::vec
             if ((loc.x > (dims[X] - 1)) && (loc.x < dims[X])) loc.x = dims[X]-1;
             if ((loc.y > (dims[Y] - 1)) && (loc.y < dims[Y])) loc.y = dims[Y]-1;
             if ((loc.z > (dims[Z] - 1)) && (loc.z < dims[Z])) loc.z = dims[Z]-1;
-
-            cv::Point3i loc0(floor(loc.x), floor(loc.y), floor(loc.z));
-            cv::Point3d locf(loc.x - loc0.x, loc.y - loc0.y, loc.z - loc0.z);
 
             cv::Point3i loc1 = loc0;
             if (loc1.x < (dims[X]-1)) loc1.x++;
@@ -221,6 +222,9 @@ void AbstractFrameWarper::precomputeInterp(const ImageScanParameters& image_para
          }
       }
    }
+
+   if (i != (D_range.size() - 2))
+      throw std::runtime_error("Something went wrong");
 
    D_range[i].end = dims[X]*dims[Y]*dims[Z] - 1;
 

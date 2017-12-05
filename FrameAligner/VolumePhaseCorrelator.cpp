@@ -78,7 +78,7 @@ cv::Point3d VolumePhaseCorrelator::computeShift(const float* volume)
    fftw_execute(p->inv_plan);
 
    // Find peak
-   double pk = 0;
+   double pk = -std::numeric_limits<double>::max();
    int idx = 0;
    for(int i=0; i<n_el; i++)
    {
@@ -93,16 +93,19 @@ cv::Point3d VolumePhaseCorrelator::computeShift(const float* volume)
    // Compute peak index
    int x = idx % dims[X];
    int y = (idx / dims[X]) % dims[Y];
-   int z = (idx / (dims[X] * dims[Y])) % dims[Z];
+   int z = idx / (dims[X] * dims[Y]);
 
-   if (x > dims[X]/2) x -= dims[X];
-   if (y > dims[Y]/2) y -= dims[Y];
-   if (z > dims[Z]/2) z -= dims[Z];
+   if (x > dims[X]/2) 
+      x -= dims[X];
+   if (y > dims[Y]/2) 
+      y -= dims[Y];
+   if (z > dims[Z]/2) 
+      z -= dims[Z];
 
 
    // Compute subpixel interpolation of peak centre
    double xw = 0, yw = 0, zw = 0, w = 0;
-   const int c = 2;
+   const int c = 1;
    for (int dz = -c; dz <= c; dz++)
       for (int dy = -c; dy <= c; dy++)
          for (int dx = -c; dx < c; dx++)
@@ -128,16 +131,16 @@ cv::Point3d VolumePhaseCorrelator::computeShift(const float* volume)
             }
          }
    
-   double xf = x ;//+ xw / w;
-   double yf = y ;//+ yw / w;
-   double zf = z ;//+ zw / w;
+   double xf = x;// +xw / w;
+   double yf = y;// +yw / w;
+   double zf = z;// +zw / w;
 
    return cv::Point3d(xf, yf, zf);
 }
 
 void VolumePhaseCorrelator::computeWindow()
 {
-   auto windowZ = hann(dims[Z]);
+   auto windowZ = std::vector<double>(dims[Z], 1); //hann(dims[Z]);
    auto windowY = hann(dims[Y]);
    auto windowX = hann(dims[X]);
    
@@ -151,13 +154,9 @@ void VolumePhaseCorrelator::computeWindow()
 
 std::vector<double> VolumePhaseCorrelator::hann(int n)
 {
-   std::vector<double> window(n);
+   std::vector<double> window(n, 1);
 
-   if (n == 1)
-   {
-      window[0] = 1;      
-   }
-   else
+   if (n> 1)
    {
       double f = 2*PI / (n-1);
       for(int i=0; i<n; i++)

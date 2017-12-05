@@ -69,6 +69,7 @@ protected:
    std::vector<int> dims;
    bool output2d = false;
 
+   static const bool supress_hotspots;
 
    std::unique_ptr<VolumePhaseCorrelator> phase_correlator;
 
