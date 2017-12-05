@@ -54,10 +54,10 @@ void GpuFrameWarper::setupReferenceInformation()
    stream_VI = true;
       
    float3 offset;
-   double stack_duration = dims[Z] * image_params.frame_duration;
+   double stack_duration = dims[Z] * image_params.interframe_duration;
    offset.x = image_params.pixel_duration / stack_duration;
    offset.y = image_params.interline_duration / stack_duration;
-   offset.z = image_params.frame_duration / stack_duration;
+   offset.z = image_params.interframe_duration / stack_duration;
 
    range_max = std::max_element(VI_dW_dp.begin(), VI_dW_dp.end(), [](auto& a, auto& b) { return a.size() < b.size(); })->size();
 

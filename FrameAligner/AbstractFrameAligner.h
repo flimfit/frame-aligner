@@ -33,6 +33,7 @@ public:
    double correlation_threshold = 0;
    double coverage_threshold = 0;
    bool prefer_gpu = true;
+   bool store_frames = true;
    DefaultReferenceFrame default_reference_frame = DefaultReferenceFrame::FirstFrame;
 
    bool use_realignment() { return type != RealignmentType::None; }
