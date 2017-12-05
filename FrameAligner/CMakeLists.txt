@@ -13,7 +13,9 @@ if(APPLE)
     set(EXTRA_LIBRARIES "-framework Accelerate") # for dlib
 endif()
 
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -std=c++11 -arch=sm_30")
+if (CUDA_FOUND)
+   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -std=c++11 -arch=sm_30 -DFrameAlignerUseCuda")
+endif()
 
 include_directories(${Boost_INCLUDE_DIR} ${OpenCV_INCLUDE_DIRS} ${dlib_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} ${CUDA_INCLUDE_DIRS})
 
