@@ -177,6 +177,7 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
          D_rigid[idx++] = rigid_shift;
    }
    D2col(D_rigid, starting_point[1], n_dim);
+   std::fill(starting_point[1].begin(), starting_point[1].end(), 0);
 
 
    cv::Point3d rigid_shift = phase_correlator->computeShift((float*)downsampled.data);
@@ -295,6 +296,7 @@ void FrameWarpAligner::writeRealignmentInfo(std::string filename)
    os << "Frame Duration," << image_params.frame_duration << "\n";
    os << "Interframe Duration," << image_params.interframe_duration << "\n";
    os << "Lines," << image_params.n_y << "\n";
+   os << "Frames Per Stack," << image_params.n_z << "\n";
 
    os << "Frame, UnalignedCorrelation, Correlation, Coverage";
    for (int j = 0; j < Dstore[0].size(); j++)

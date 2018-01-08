@@ -184,7 +184,7 @@ void AbstractFrameWarper::precomputeInterp(const ImageScanParameters& image_para
    double frame_duration = image_params.frame_duration;
    double interframe_duration = image_params.interframe_duration;
    double interline_duration = image_params.interline_duration;
-   double stack_duration = dims[Z] * interframe_duration;
+   double stack_duration = (dims[Z]-1) * interframe_duration + dims[Y] * interline_duration;
 
    D_range.resize(nD);
 

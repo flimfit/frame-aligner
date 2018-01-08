@@ -160,10 +160,11 @@ GpuTextureManager::GpuTextureManager()
 
 __device__ float3 warpPoint(int nD, const float3* D, float3 offset, int x, int y, int z, int n_x, bool bidirectional)
 {
+   int x_ = x;
    if (bidirectional && ((y % 2) == 1))
-      x = n_x - x - 1;
+      x_ = n_x - x - 1;
 
-   float Didx = (x * offset.x + y * offset.y + z * offset.z) * (nD-1);
+   float Didx = (x_ * offset.x + y * offset.y + z * offset.z) * (nD-1);
    int idx = Didx; // => floor
    float f = Didx - idx;
    float3 p;

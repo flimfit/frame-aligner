@@ -54,6 +54,7 @@ public:
       i0 = i0_;
       i1 = i1_;
       n = i1 - i0;
+      if (i0 > i1) n = 0;
       v.resize(n);
    }
 

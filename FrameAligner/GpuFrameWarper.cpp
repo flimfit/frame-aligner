@@ -54,7 +54,7 @@ void GpuFrameWarper::setupReferenceInformation()
    stream_VI = true;
       
    float3 offset;
-   double stack_duration = dims[Z] * image_params.interframe_duration;
+   double stack_duration = (dims[Z]-1) * image_params.interframe_duration + image_params.frame_duration;
    offset.x = image_params.pixel_duration / stack_duration;
    offset.y = image_params.interline_duration / stack_duration;
    offset.z = image_params.interframe_duration / stack_duration;
