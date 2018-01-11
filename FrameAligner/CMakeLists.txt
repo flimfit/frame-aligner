@@ -16,6 +16,7 @@ endif()
 
 if (CUDA_FOUND)
    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -std=c++11 -arch=sm_30 -DUSE_CUDA_REALIGNMENT")
+   add_definitions(-DUSE_CUDA_REALIGNMENT)
 endif()
 
 include_directories(${Boost_INCLUDE_DIR} ${OpenCV_INCLUDE_DIRS} ${dlib_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} ${CUDA_INCLUDE_DIRS})
@@ -45,7 +46,7 @@ set(HEADERS
    FrameWarper.h
 )
 
-if (USE_CUDA)
+if (CUDA_FOUND)
    set(SOURCE ${SOURCE}
               GpuFrameWarper.cpp
               GpuFrameWarperKernels.cu)

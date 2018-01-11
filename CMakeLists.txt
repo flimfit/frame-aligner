@@ -5,7 +5,6 @@ project(FrameAligner)
 
 hunter_add_package(OpenCV)
 
-option(USE_CUDA "Use CUDA for realignment" ON)
 option(GENERATE_MEX "Generate Frame Aligner Mex file" ON)
 
 if(MSVC)
