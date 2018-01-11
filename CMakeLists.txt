@@ -1,18 +1,11 @@
 cmake_minimum_required(VERSION 3.7)
 set(CMAKE_CXX_STANDARD 14)
 
-include("cmake/HunterGate.cmake")
-HunterGate(
-    URL "https://github.com/ruslo/hunter/archive/v0.19.78.tar.gz"
-    SHA1 "642dd750712e383c836bbdc6ab4a16efad135c5a"
-    LOCAL
-)
-
-
 project(FrameAligner)
 
 hunter_add_package(OpenCV)
 
+option(USE_CUDA "Use CUDA for realignment" ON)
 option(GENERATE_MEX "Generate Frame Aligner Mex file" ON)
 
 if(MSVC)
@@ -37,7 +30,6 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${PLATFORM_FLAGS_DEBUG}")
 set(FrameAlignerMEX_OUT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_subdirectory(FrameAligner)
-
 
 if(GENERATE_MEX)
    add_subdirectory(FrameAlignerMex)

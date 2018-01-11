@@ -1,3 +1,5 @@
+#ifdef USE_CUDA_REALIGNMENT
+
 #include "FrameWarper.h"
 #include "GpuFrameWarperKernels.h"
 #include <map>
@@ -7,8 +9,6 @@
 #include "Pool.h"
 
 #include <cuda_runtime.h>
-
-
 
 class GpuFrameWarper : public AbstractFrameWarper
 {
@@ -52,3 +52,13 @@ protected:
    Pool<GpuWorkingSpace,GpuWorkingSpaceParams> pool;
 
 };
+
+#else
+
+class GpuFrameWarper
+{
+public:
+   static bool hasSupportedGpu() { return false; };
+};
+
+#endif

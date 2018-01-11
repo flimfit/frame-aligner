@@ -10,7 +10,6 @@
 #include "Cv3dUtils.h"
 
 #include "FrameWarper.h"
-#include "GpuFrameWarper.h"
 
 class FrameWarpAligner : public AbstractFrameAligner
 {

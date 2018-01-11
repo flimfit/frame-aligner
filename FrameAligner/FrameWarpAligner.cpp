@@ -6,16 +6,25 @@
 #include <fstream>
 #include <algorithm>
 
+#ifdef USE_CUDA_REALIGNMENT
+#include "GpuFrameWarper.h"
+#endif
+
 const bool FrameWarpAligner::supress_hotspots = false;
 
 
 FrameWarpAligner::FrameWarpAligner(RealignmentParameters params)
 {
    realign_params = params;
+#ifdef USE_CUDA_REALIGNMENT
    if (params.prefer_gpu && GpuFrameWarper::hasSupportedGpu())
       warper = std::make_shared<GpuFrameWarper>();
    else
       warper = std::make_shared<CpuFrameWarper>();
+#else
+      warper = std::make_shared<CpuFrameWarper>();
+#endif
+
 }
 
 cv::Mat FrameWarpAligner::reshapeForOutput(cv::Mat& m, int type)
