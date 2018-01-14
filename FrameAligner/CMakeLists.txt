@@ -2,24 +2,24 @@ cmake_minimum_required(VERSION 3.9)
 project(FrameAligner LANGUAGES CXX)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(CheckLanguage)
 
 find_package(OpenCV 3.1 REQUIRED core imgproc imgcodecs videoio)
 find_package(FFTW)
-find_package(CUDA QUIET)
-
 find_package(TIFF)
 find_package(dlib REQUIRED)
+
+check_language(CUDA)
+if(CMAKE_CUDA_COMPILER)
+  enable_language(CUDA)
+  set(CUDA_FOUND "CUDA_FOUND")
+endif()
 
 if(APPLE)
     set(EXTRA_LIBRARIES "-framework Accelerate") # for dlib
 endif()
 
-if (CUDA_FOUND)
-   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -std=c++11 -arch=sm_30 -DUSE_CUDA_REALIGNMENT")
-   add_definitions(-DUSE_CUDA_REALIGNMENT)
-endif()
-
-include_directories(${Boost_INCLUDE_DIR} ${OpenCV_INCLUDE_DIRS} ${dlib_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} ${CUDA_INCLUDE_DIRS})
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -arch=sm_30")
 
 set(SOURCE
    AbstractFrameAligner.cpp
@@ -55,17 +55,35 @@ if (CUDA_FOUND)
                GpuFrameWarper.h
                GpuFrameWarperKernels.h
                GpuTextureManager.h)
+
+    set(EXTRA_DEFINITIONS USE_CUDA_REALIGNMENT)
 endif()
 
-set(FrameAligner_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR} ${OpenCV_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} ${CUDA_INCLUDE_DIRS} PARENT_SCOPE)
-set(FrameAligner_LIBRARIES ${OpenCV_LIBS} ${EXTRA_LIBRARIES} ${TIFF_LIBRARIES} ${FFTW_LIBRARIES} dlib::dlib PARENT_SCOPE)
 add_library(FrameAligner STATIC ${SOURCE} ${HEADERS})
 
-target_link_libraries(FrameAligner ${FrameAligner_LIBRARIES})
+target_compile_definitions(FrameAligner PUBLIC ${EXTRA_DEFINITIONS})
+
+target_link_libraries(FrameAligner dlib::dlib
+                                   ${OpenCV_LIBS}
+                                   ${EXTRA_LIBRARIES} 
+                                   ${TIFF_LIBRARIES} 
+                                   ${FFTW_LIBRARIES})
+
+target_include_directories(FrameAligner PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+                                               ${OpenCV_INCLUDE_DIRS}
+                                               ${CUDA_INCLUDE_DIRS}
+                                               ${FFTW_INCLUDE_DIRS})
 
 if(APPLE)
-# We need to add the path to the driver (libcuda.dylib) as an rpath, 
-# so that the static cuda runtime can find it at runtime.
-set_property(TARGET FrameAligner PROPERTY 
-             BUILD_RPATH ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
+    # We need to add the path to the driver (libcuda.dylib) as an rpath, 
+    # so that the static cuda runtime can find it at runtime.
+    set_property(TARGET FrameAlignerPrivate PROPERTY 
+                 BUILD_RPATH ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
 endif()
+
+# Remove dlib /bigobj compiler option - nvcc chokes on this flag and we don't need it
+# for our usage of the library
+get_target_property(dlib_compile_opts dlib::dlib INTERFACE_COMPILE_OPTIONS)
+STRING(REPLACE "/bigobj" "" dlib_compile_opts ${dlib_compile_opts})
+set_target_properties(dlib::dlib PROPERTIES INTERFACE_COMPILE_OPTIONS "${dlib_compile_opts}")
+

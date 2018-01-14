@@ -3,8 +3,6 @@ set(CMAKE_CXX_STANDARD 14)
 
 project(FrameAligner)
 
-hunter_add_package(OpenCV)
-
 option(GENERATE_MEX "Generate Frame Aligner Mex file" ON)
 
 if(MSVC)
