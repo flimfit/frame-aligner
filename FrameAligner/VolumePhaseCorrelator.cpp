@@ -156,11 +156,11 @@ std::vector<double> VolumePhaseCorrelator::hann(int n)
 {
    std::vector<double> window(n, 1);
 
-   if (n> 1)
+   if (n > 1)
    {
-      double f = 2*PI / (n-1);
-      for(int i=0; i<n; i++)
-         window[i] = 0.5 * (1 - cos(f * i));
+      double f = 2.0*PI / (n-1);
+      for (int i = 0; i < n; i++)
+         window[i] = sqrt(0.5 * (1 - cos(f * i)));
    }
 
    return window;   
