@@ -8,6 +8,7 @@ find_package(OpenCV 3.1 REQUIRED core imgproc imgcodecs videoio)
 find_package(FFTW)
 find_package(TIFF)
 find_package(dlib REQUIRED)
+set_target_properties(dlib::dlib PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 
 check_language(CUDA)
 if(CMAKE_CUDA_COMPILER)
