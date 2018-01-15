@@ -16,7 +16,6 @@ FrameWarpAligner::FrameWarpAligner(RealignmentParameters params)
    realign_params = params;
    if (params.prefer_gpu && GpuFrameWarper::hasSupportedGpu())
    {
-
 #ifdef USE_CUDA_REALIGNMENT
       warper = std::make_shared<GpuFrameWarper>();
 #endif
@@ -190,6 +189,8 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
 
 
    cv::Point3d rigid_shift = phase_correlator->computeShift((float*)downsampled.data);
+   rigid_shift.x *= phase_downsampling;
+   rigid_shift.y *= phase_downsampling;
    std::vector<cv::Point3d> D_rigid_volume(nD, rigid_shift);
    D2col(D_rigid_volume, starting_point[2], n_dim);
 
@@ -207,7 +208,7 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
       try
       {
 
-         find_min_trust_region(dlib::objective_delta_stop_strategy(1e-2),
+         find_min_trust_region(dlib::objective_delta_stop_strategy(1e-6),
             model,
             x,
             40 // initial trust region radius
