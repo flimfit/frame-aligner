@@ -53,11 +53,13 @@ void GpuFrameWarper::setupReferenceInformation()
 
    stream_VI = true;
       
+   auto p = processScanParameters(image_params);
+
+
    float3 offset;
-   double stack_duration = (dims[Z]-1) * image_params.interframe_duration + image_params.frame_duration;
-   offset.x = image_params.pixel_duration / stack_duration;
-   offset.y = image_params.interline_duration / stack_duration;
-   offset.z = image_params.interframe_duration / stack_duration;
+   offset.x = p.pixel_duration / p.stack_duration;
+   offset.y = p.interline_duration / p.stack_duration;
+   offset.z = p.interframe_duration / p.stack_duration;
 
    range_max = std::max_element(VI_dW_dp.begin(), VI_dW_dp.end(), [](auto& a, auto& b) { return a.size() < b.size(); })->size();
 

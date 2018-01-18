@@ -15,6 +15,8 @@ public:
 
       pixel_duration = line_duration / n_x;
       frame_duration = n_y * interline_duration;
+
+      stack_duration = (n_z - 1) * interframe_duration + frame_duration;
    }
 
    double line_duration;
@@ -22,6 +24,7 @@ public:
    double pixel_duration;
    double frame_duration;
    double interframe_duration;
+   double stack_duration;
    int n_x;
    int n_y;
    int n_z;

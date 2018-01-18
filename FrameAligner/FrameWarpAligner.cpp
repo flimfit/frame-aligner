@@ -169,6 +169,7 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
    std::vector<cv::Point3d> D_rigid_z(dims[Z]);
    std::vector<cv::Point3d> D_rigid(nD);
 
+   /*
    int idx = 0;
    for (int z = 0; z < dims[Z]; z++)
    {
@@ -185,6 +186,7 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
          D_rigid[idx++] = rigid_shift;
    }
    D2col(D_rigid, starting_point[1], n_dim);
+   */
    std::fill(starting_point[1].begin(), starting_point[1].end(), 0);
 
 

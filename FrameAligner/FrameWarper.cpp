@@ -178,13 +178,26 @@ Jacobian structure:
 */
 
 
+//Ensure that spacing between frames is not so large that we have multiple realignment points between frames
+ImageScanParameters AbstractFrameWarper::processScanParameters(const ImageScanParameters& image_params)
+{
+   ImageScanParameters new_params = image_params;
+
+   double frame_interval_max = dims[Z] * image_params.frame_duration / (nD - dims[Z]);
+
+   if ((image_params.interframe_duration - image_params.frame_duration) > frame_interval_max)
+   {
+      new_params.interframe_duration = new_params.frame_duration + frame_interval_max;
+      new_params.stack_duration = (dims[Z] - 1) * new_params.interframe_duration + new_params.frame_duration;
+   }
+
+   return new_params;
+}
+
+
 void AbstractFrameWarper::precomputeInterp(const ImageScanParameters& image_params)
 {
-   double pixel_duration = image_params.pixel_duration;
-   double frame_duration = image_params.frame_duration;
-   double interframe_duration = image_params.interframe_duration;
-   double interline_duration = image_params.interline_duration;
-   double stack_duration = (dims[Z]-1) * interframe_duration + dims[Y] * interline_duration;
+   auto p = processScanParameters(image_params);
 
    D_range.resize(nD);
 
@@ -201,8 +214,8 @@ void AbstractFrameWarper::precomputeInterp(const ImageScanParameters& image_para
       {
          for (int x = 0; x < dims[X]; x++)
          {
-            double t = z * interframe_duration + y * interline_duration + x * pixel_duration;
-            double f = modf(t / stack_duration * (nD - 1), &Di_xy);
+            double t = z * p.interframe_duration + y * p.interline_duration + x * p.pixel_duration;
+            double f = modf(t / p.stack_duration * (nD - 1), &Di_xy);
             i = (int)Di_xy;
 
             int x_true = x;
@@ -256,16 +269,19 @@ void AbstractFrameWarper::computeSteepestDecentImages(const cv::Mat& frame)
    {
       int p0 = D_range[i - 1].begin;
       int p1 = D_range[i - 1].end;
-      for (int p = p0; p < p1; p++)
+      if (VI_dW_dp[i].size() > 0)
       {
-         cv::Point3f& dp = VI_dW_dp[i][p];
+         for (int p = p0; p < p1; p++)
+         {
+            cv::Point3f& dp = VI_dW_dp[i][p];
 
-         double jac = Dfd[p];
-         dp.x = nabla_Txd[p] * jac;
-         dp.y = nabla_Tyd[p] * jac;
+            double jac = Dfd[p];
+            dp.x = nabla_Txd[p] * jac;
+            dp.y = nabla_Tyd[p] * jac;
 
-         if (n_dim == 3)
-            dp.z = nabla_Tzd[p] * jac;
+            if (n_dim == 3)
+               dp.z = nabla_Tzd[p] * jac;
+         }
       }
    }
    

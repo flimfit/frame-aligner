@@ -107,6 +107,8 @@ public:
 
 protected:
 
+   ImageScanParameters processScanParameters(const ImageScanParameters& image_params);
+
    void precomputeInterp(const ImageScanParameters& image_params);
    void computeSteepestDecentImages(const cv::Mat& frame);
    double computeHessianEntry(int pi, int pj);
