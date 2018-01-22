@@ -15,6 +15,14 @@ GpuFrameWarper::GpuFrameWarper()
 
 bool GpuFrameWarper::hasSupportedGpu()
 {
+   int dev;
+   cudaError_t code = cudaGetDevice(&dev);
+   if (code != cudaSuccess)
+   {
+      std::cout << "Could not load CUDA: " << _cudaGetErrorEnum(code) << ", will fall back on CPU\n";
+      return false;
+   }
+
    return checkCudaCapabilities(3, 0);
 }
 
