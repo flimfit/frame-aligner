@@ -11,7 +11,7 @@ find_package(dlib REQUIRED)
 set_target_properties(dlib::dlib PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 
 check_language(CUDA)
-if(CMAKE_CUDA_COMPILER AND NOT CMAKE_COMPILER_IS_GNUCXX) # CUDA not supported on GCC
+if(CMAKE_CUDA_COMPILER AND CMAKE_CXX_COMPILER_ID MATCHES "AppleClang") # CUDA not supported on GCC
   enable_language(CUDA)
   find_package(CUDA)
 endif()
