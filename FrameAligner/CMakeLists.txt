@@ -4,14 +4,14 @@ project(FrameAligner LANGUAGES CXX)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(CheckLanguage)
 
-find_package(OpenCV 3.1 REQUIRED core imgproc imgcodecs videoio)
+find_package(OpenCV 3.1 REQUIRED highgui core imgproc imgcodecs videoio)
 find_package(FFTW)
 find_package(TIFF)
 find_package(dlib REQUIRED)
 set_target_properties(dlib::dlib PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 
 check_language(CUDA)
-if(CMAKE_CUDA_COMPILER)
+if(CMAKE_CUDA_COMPILER AND NOT CMAKE_COMPILER_IS_GNUCXX) # CUDA not supported on GCC
   enable_language(CUDA)
   find_package(CUDA)
 endif()
@@ -75,7 +75,7 @@ target_include_directories(FrameAligner PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
                                                ${CUDA_INCLUDE_DIRS}
                                                ${FFTW_INCLUDE_DIRS})
 
-if(APPLE)
+if(CUDA_FOUND AND APPLE)
     # We need to add the path to the driver (libcuda.dylib) as an rpath, 
     # so that the static cuda runtime can find it at runtime.
     set_property(TARGET FrameAligner PROPERTY 

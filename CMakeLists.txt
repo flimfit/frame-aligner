@@ -3,7 +3,7 @@ set(CMAKE_CXX_STANDARD 14)
 
 project(FrameAligner)
 
-option(GENERATE_MEX "Generate Frame Aligner Mex file" ON)
+option(GENERATE_FRAMEALIGNER_MEX "Generate Frame Aligner Mex file" ON)
 
 if(MSVC)
    set(PLATFORM_FLAGS_ALL "/Oi /fp:fast")
@@ -15,7 +15,7 @@ if(MSVC)
 endif(MSVC)
 
 if(UNIX)
-   set(PLATFORM_FLAGS_ALL "-msse3 -std=c++11")
+   set(PLATFORM_FLAGS_ALL "-msse3")
    set(PLATFORM_FLAGS_RELEASE "-O3 -ffast-math -ftree-vectorize")
    set(PLATFORM_FLAGS_DEBUG "")
 endif(UNIX)
@@ -28,6 +28,6 @@ set(FrameAlignerMEX_OUT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_subdirectory(FrameAligner)
 
-if(GENERATE_MEX)
+if(GENERATE_FRAMEALIGNER_MEX)
    add_subdirectory(FrameAlignerMex)
 endif()
