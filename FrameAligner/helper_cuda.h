@@ -258,9 +258,10 @@ static const char *_cudaGetErrorEnum(cudaError_t error)
 
         case cudaErrorApiFailureBase:
             return "cudaErrorApiFailureBase";
-    }
 
-    return "<unknown>";
+        default:
+         return "cudaErrorUnknown";
+    }
 }
 #endif
 
@@ -409,10 +410,9 @@ static const char *_cudaGetErrorEnum(CUresult error)
             return "CUDA_ERROR_HOST_MEMORY_NOT_REGISTERED";
 
         case CUDA_ERROR_UNKNOWN:
+        default: 
             return "CUDA_ERROR_UNKNOWN";
     }
-
-    return "<unknown>";
 }
 #endif
 

@@ -324,6 +324,7 @@ double AbstractFrameWarper::computeHessianEntry(int pi, int pj)
       case 1: return v.at(p).y;
       case 2: return v.at(p).z;
       }
+      return 0;
    };
 
    auto& vi = VI_dW_dp[i];
