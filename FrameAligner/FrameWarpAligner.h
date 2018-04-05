@@ -5,6 +5,7 @@
 #include <functional>
 #include <array>
 #include <memory>
+#include <list>
 #include <opencv2/opencv.hpp>
 #include <dlib/optimization.h>
 #include "Cv3dUtils.h"
