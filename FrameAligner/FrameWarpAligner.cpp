@@ -204,13 +204,12 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
 
    column_vector x = starting_point[best_start];
    
-   
    if (realign_params.type == RealignmentType::Warp)
    {
       try
       {
 
-         find_min_trust_region(dlib::objective_delta_stop_strategy(1e-6),
+         find_min_trust_region(dlib::objective_delta_stop_strategy(1e-8),
             model,
             x,
             40 // initial trust region radius
