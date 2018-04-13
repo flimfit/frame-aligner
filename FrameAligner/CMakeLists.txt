@@ -67,8 +67,7 @@ target_compile_definitions(FrameAligner PUBLIC ${EXTRA_DEFINITIONS})
 target_link_libraries(FrameAligner dlib::dlib
                                    ${OpenCV_LIBS}
                                    ${EXTRA_LIBRARIES} 
-                                   ${TIFF_LIBRARIES} 
-                                   ${FFTW_LIBRARIES})
+                                   ${TIFF_LIBRARIES})
 
 target_include_directories(FrameAligner PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
                                                ${OpenCV_INCLUDE_DIRS}
