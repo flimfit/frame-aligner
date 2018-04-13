@@ -18,7 +18,7 @@ if(CMAKE_CUDA_COMPILER AND (NOT APPLE OR CMAKE_CXX_COMPILER_ID MATCHES "AppleCla
 endif()
 
 if(APPLE)
-    set(EXTRA_LIBRARIES "-framework Accelerate") # for dlib
+    set(EXTRA_LIBRARIES "-framework Accelerate ${FFTW_LIBRARIES}") # for dlib
 endif()
 
 
