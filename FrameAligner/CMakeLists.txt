@@ -80,10 +80,3 @@ if(CUDA_FOUND AND APPLE)
     set_property(TARGET FrameAligner PROPERTY 
                  BUILD_RPATH ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
 endif()
-
-# Remove dlib /bigobj compiler option - nvcc chokes on this flag and we don't need it
-# for our usage of the library
-get_target_property(dlib_compile_opts dlib::dlib INTERFACE_COMPILE_OPTIONS)
-STRING(REPLACE "/bigobj" "" dlib_compile_opts ${dlib_compile_opts})
-set_target_properties(dlib::dlib PROPERTIES INTERFACE_COMPILE_OPTIONS "${dlib_compile_opts}")
-
