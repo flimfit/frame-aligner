@@ -14,7 +14,7 @@ const bool FrameWarpAligner::supress_hotspots = false;
 FrameWarpAligner::FrameWarpAligner(RealignmentParameters params)
 {
    realign_params = params;
-   if (params.prefer_gpu && GpuFrameWarper::hasSupportedGpu())
+   if (params.prefer_gpu && GpuFrameWarper::getGpuSupportInformation())
    {
 #ifdef USE_CUDA_REALIGNMENT
       warper = std::make_shared<GpuFrameWarper>();

@@ -1,3 +1,21 @@
+#pragma once
+
+#include <string>
+
+class GpuSupportInformation
+{
+public:
+   GpuSupportInformation(bool supported = false, std::string message = "", std::string remedy_message = "") :
+      supported(supported), message(message), remedy_message(remedy_message)
+   {}
+
+   explicit operator bool() const { return supported; }
+
+   bool supported;
+   std::string message;
+   std::string remedy_message;
+};
+
 #ifdef USE_CUDA_REALIGNMENT
 
 #include "FrameWarper.h"
@@ -25,7 +43,7 @@ public:
    void registerFrame(const cv::Mat& frame);
    void deregisterFrame(const cv::Mat& frame);
 
-   static bool hasSupportedGpu();
+   static GpuSupportInformation getGpuSupportInformation();
 
    void clearTemp();
 
@@ -58,7 +76,7 @@ protected:
 class GpuFrameWarper
 {
 public:
-   static bool hasSupportedGpu() { return false; };
+   static GpuSupportInformation getGpuSupportInformation() { return GpuSupportInformation(false, "Not compiled", ""); };
 };
 
 #endif

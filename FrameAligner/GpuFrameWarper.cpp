@@ -9,21 +9,37 @@
 
 GpuFrameWarper::GpuFrameWarper()
 {
-   if (!hasSupportedGpu())
+   if (!getGpuSupportInformation())
       throw std::runtime_error("No supported GPU");
 }
 
-bool GpuFrameWarper::hasSupportedGpu()
+GpuSupportInformation GpuFrameWarper::getGpuSupportInformation()
 {
+   GpuSupportInformation support_information(true);
+   
    int dev;
    cudaError_t code = cudaGetDevice(&dev);
    if (code != cudaSuccess)
    {
+      if (code == cudaErrorInsufficientDriver)
+      {
+         support_information.message = "Insufficient Driver";
+         support_information.remedy_message = "<p>A CUDA compatible card was found, but your installed driver is out of date.</p><p>To use GPU based realignment, please update your Nvidia driver at:<br/> <a href='http://www.nvidia.com/Download/Scan.aspx'>http://www.nvidia.com/Download/Scan.aspx</a></p>";
+      }
+      else if (code == cudaErrorNoDevice)
+      {
+         support_information.message = "No compatible GPU";
+      }
       std::cout << "Could not load CUDA: " << _cudaGetErrorEnum(code) << ", will fall back on CPU\n";
-      return false;
+      support_information.supported = false;
    }
 
-   return checkCudaCapabilities(3, 0);
+   if (!checkCudaCapabilities(3, 0))
+   {
+      support_information.supported = false;
+      support_information.message = "No compatible GPU";
+   }
+   return support_information;
 }
 
 void GpuFrameWarper::registerFrame(const cv::Mat& frame)
