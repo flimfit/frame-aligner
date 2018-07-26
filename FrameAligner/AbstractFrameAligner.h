@@ -51,6 +51,11 @@ public:
    double unaligned_correlation = 0;
    double coverage = 0;
    bool done = false;
+
+   bool useFrame(const RealignmentParameters& p)
+   {
+      return ((correlation >= p.correlation_threshold) && (coverage >= p.coverage_threshold));
+   }
 };
 
 class AbstractFrameAligner
@@ -73,7 +78,7 @@ public:
    void setImageScanParams(ImageScanParameters params_) { image_params = params_; }
    virtual void setReference(int frame_t, const cv::Mat& reference_) = 0;
    virtual RealignmentResult addFrame(int frame_t, const cv::Mat& frame) = 0; // should return aligned frame
-   virtual cv::Mat realignAsFrame(int frame_t, const cv::Mat& frame) = 0; // should realign provided frame as if it was frame_t
+   virtual cv::Mat realignAsFrame(int frame_t, const cv::Mat& frame, bool interpolate_missing = true) = 0; // should realign provided frame as if it was frame_t
    virtual void shiftPixel(int frame_t, double& x, double& y, double& z) = 0;
    virtual double getFrameCorrelation(int frame_t) { return 0.; }
    virtual double getFrameCoverage(int frame_t) { return 0.; }

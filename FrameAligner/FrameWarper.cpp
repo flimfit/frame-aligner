@@ -28,7 +28,7 @@ double CpuFrameWarper::computeErrorImage(cv::Mat& wimg, cv::Mat& error_img)
    return ms_error;
 }
 
-void CpuFrameWarper::warpImage(const cv::Mat& img, cv::Mat& wimg, const std::vector<cv::Point3d>& D, int invalid_value)
+void CpuFrameWarper::warpImageInterpolated(const cv::Mat& img, cv::Mat& wimg, const std::vector<cv::Point3d>& D, int invalid_value)
 {
    wimg = cv::Mat(dims, CV_32F, cv::Scalar(invalid_value));
    
@@ -79,29 +79,81 @@ void CpuFrameWarper::warpImage(const cv::Mat& img, cv::Mat& wimg, const std::vec
          }
 }
 
-void AbstractFrameWarper::warpImageIntensityPreserving(const cv::Mat& img, cv::Mat& wimg, cv::Mat& coverage, const std::vector<cv::Point3d>& D)
+void AbstractFrameWarper::warpImage(const cv::Mat& img, cv::Mat& wimg, cv::Mat& coverage, const std::vector<cv::Point3d>& D)
 
 {
-   wimg = cv::Mat(dims, CV_8U, cv::Scalar(0));
-   coverage = cv::Mat(dims, CV_8U, cv::Scalar(0));
+   wimg = cv::Mat(dims, CV_32F, cv::Scalar(0));
+   coverage = cv::Mat(dims, CV_32F, cv::Scalar(0));
    
    for (int z = 0; z < dims[Z]; z++)
       for (int y = 0; y < dims[Y]; y++)
          for (int x = 0; x < dims[X]; x++)
          {
             cv::Point3d loc = warpPoint(D, x, y, z);
+            loc = cv::Point3d(x, y, z) - loc;
 
+            cv::Point3i loc0(floor(loc.x), floor(loc.y), floor(loc.z));
+            cv::Point3d locf(loc.x - loc0.x, loc.y - loc0.y, loc.z - loc0.z);
+
+            // Clamp values slightly outside range
+            if ((loc.x < 0) && (loc.x > -1)) loc.x = 0;
+            if ((loc.y < 0) && (loc.y > -1)) loc.y = 0;
+            if ((loc.z < 0) && (loc.z > -1)) loc.z = 0;
+
+            if ((loc.x > (dims[X] - 1)) && (loc.x < dims[X])) loc.x = dims[X] - 1;
+            if ((loc.y > (dims[Y] - 1)) && (loc.y < dims[Y])) loc.y = dims[Y] - 1;
+            if ((loc.z > (dims[Z] - 1)) && (loc.z < dims[Z])) loc.z = dims[Z] - 1;
+
+            cv::Point3i loc1 = loc0;
+            if (loc1.x < (dims[X] - 1)) loc1.x++;
+            if (loc1.y < (dims[Y] - 1)) loc1.y++;
+            if (loc1.z < (dims[Z] - 1)) loc1.z++;
+
+            if (isValidPoint(loc0, dims))
+            {
+               float v = img.at<float>(z, y, x);
+               wimg.at<float>(loc0.z, loc0.y, loc0.x) += (1 - locf.y) * (1 - locf.x) * (1 - locf.z) * v;
+               wimg.at<float>(loc0.z, loc1.y, loc0.x) += (    locf.y) * (1 - locf.x) * (1 - locf.z) * v;
+               wimg.at<float>(loc0.z, loc0.y, loc1.x) += (1 - locf.y) * (    locf.x) * (1 - locf.z) * v;
+               wimg.at<float>(loc0.z, loc1.y, loc1.x) += (    locf.y) * (    locf.x) * (1 - locf.z) * v;
+               wimg.at<float>(loc1.z, loc0.y, loc0.x) += (1 - locf.y) * (1 - locf.x) * locf.z * v;
+               wimg.at<float>(loc1.z, loc1.y, loc0.x) += (    locf.y) * (1 - locf.x) * locf.z * v;
+               wimg.at<float>(loc1.z, loc0.y, loc1.x) += (1 - locf.y) * (    locf.x) * locf.z * v;
+               wimg.at<float>(loc1.z, loc1.y, loc1.x) += (    locf.y) * (    locf.x) * locf.z * v;
+
+               coverage.at<float>(loc0.z, loc0.y, loc0.x) += (1 - locf.y) * (1 - locf.x) * (1 - locf.z);
+               coverage.at<float>(loc0.z, loc1.y, loc0.x) += (    locf.y) * (1 - locf.x) * (1 - locf.z);
+               coverage.at<float>(loc0.z, loc0.y, loc1.x) += (1 - locf.y) * (    locf.x) * (1 - locf.z);
+               coverage.at<float>(loc0.z, loc1.y, loc1.x) += (    locf.y) * (    locf.x) * (1 - locf.z);
+               coverage.at<float>(loc1.z, loc0.y, loc0.x) += (1 - locf.y) * (1 - locf.x) * locf.z;
+               coverage.at<float>(loc1.z, loc1.y, loc0.x) += (    locf.y) * (1 - locf.x) * locf.z;
+               coverage.at<float>(loc1.z, loc0.y, loc1.x) += (1 - locf.y) * (    locf.x) * locf.z;
+               coverage.at<float>(loc1.z, loc1.y, loc1.x) += (    locf.y) * (    locf.x) * locf.z;
+            }
+
+
+            /*
             cv::Vec<int,3> locr = { (int)round(z - loc.z),
                                     (int)round(y - loc.y),
                                     (int)round(x - loc.x) };              
                
             if (isValidPoint(locr, dims))
             {
-               wimg.at<uint8_t>(locr) += img.at<float>(z, y, x);
+               wimg.at<float>(locr) += img.at<float>(z, y, x);
                coverage.at<uint8_t>(locr)++;               
             }
+            */
          }
 }
+
+void AbstractFrameWarper::warpImageNormalised(const cv::Mat& img, cv::Mat& wimg, const std::vector<cv::Point3d>& D, int cv_type)
+{
+   cv::Mat coverage, wimgi;
+   warpImage(img, wimgi, coverage, D);
+
+   wimgi.convertTo(wimg, cv_type);
+}
+
 
 void AbstractFrameWarper::computeJacobian(const cv::Mat& error_img, column_vector& jac)
 {
@@ -128,7 +180,7 @@ void AbstractFrameWarper::computeJacobian(const cv::Mat& error_img, column_vecto
 double CpuFrameWarper::getError(const cv::Mat& frame, const std::vector<cv::Point3d>& D)
 {
    cv::Mat warped_image, error_image;
-   warpImage(frame, warped_image, D, -1);
+   warpImageInterpolated(frame, warped_image, D, -1);
    double err = computeErrorImage(warped_image, error_image);
    error_buffer[frame.data] = error_image;
    return err;

@@ -234,7 +234,7 @@ void GpuFrameWarper::getJacobian(const cv::Mat& frame, const std::vector<cv::Poi
 }
 
 
-void GpuFrameWarper::warpImage(const cv::Mat& frame, cv::Mat& wimg, const std::vector<cv::Point3d>& D, int invalid_value)
+void GpuFrameWarper::warpImageInterpolated(const cv::Mat& frame, cv::Mat& wimg, const std::vector<cv::Point3d>& D, int invalid_value)
 {      
    auto f = getRegisteredFrame(frame);
    auto w = pool.get();

@@ -221,39 +221,36 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
       }
    }
    
-   
    col2D(x, D, n_dim);
    Dstore[frame_t] = D;
    Dlast = *(D.end() - 2);
 
    cv::Mat warped_smoothed, warped, mask, intensity_preserving, m;
-   warper->warpImage(frame, warped_smoothed, D);
+   warper->warpImageInterpolated(frame, warped_smoothed, D);
          
    warper->deregisterFrame(frame);
    warper->registerFrame(raw_frame);
+   warper->warpImageInterpolated(raw_frame, warped, D);
+   warper->warpImage(raw_frame, intensity_preserving, mask, D);
+   intensity_preserving /= mask;
 
-   warper->warpImage(raw_frame, warped, D);
-   warper->warpImageIntensityPreserving(raw_frame, intensity_preserving, mask, D);
-   
    warper->deregisterFrame(raw_frame);
    
    cv::compare(mask, 0, m, cv::CMP_GT);
+//   inpaint3d(intensity_preserving, mask, warped);
 
    
    std::unique_lock<std::mutex> lk(align_mutex);
 
    RealignmentResult r;
-   r.frame = reshapeForOutput(raw_frame, CV_8U);
-   r.realigned = reshapeForOutput(warped, CV_8U);
+   r.frame = reshapeForOutput(raw_frame, CV_16U);
+   r.realigned = reshapeForOutput(warped, CV_16U);
    r.mask = reshapeForOutput(mask, CV_8U);
    r.correlation = correlation(warped_smoothed, smoothed_reference, m);
    r.unaligned_correlation = correlation(frame, smoothed_reference, m);
    r.coverage = ((double)cv::countNonZero(mask)) / (dims[X] * dims[Y] * dims[Z]);
    
-   if (r.correlation < realign_params.correlation_threshold || r.coverage < realign_params.coverage_threshold)
-      intensity_preserving = 0;
-
-   r.realigned_preserving = reshapeForOutput(intensity_preserving, CV_8U);
+   r.realigned_preserving = reshapeForOutput(intensity_preserving, CV_16U);
    r.done = true;
    
    results[frame_t] = r;
@@ -281,14 +278,19 @@ void FrameWarpAligner::shiftPixel(int frame_t, double& x, double& y, double& z)
 
 
 
-cv::Mat FrameWarpAligner::realignAsFrame(int frame_t, const cv::Mat& frame)
+cv::Mat FrameWarpAligner::realignAsFrame(int frame_t, const cv::Mat& frame, bool interpolate_missing)
 {
    std::unique_lock<std::mutex> lk(align_mutex);
    align_cv.wait(lk, [&] { return results[frame_t].done; });
 
    cv::Mat warped;
    warper->registerFrame(frame);
-   warper->warpImage(frame, warped, Dstore[frame_t]);
+   if (!results[frame_t].useFrame(realign_params))
+      warped = cv::Mat(frame.size(), CV_16U, cv::Scalar(0));
+   if (interpolate_missing)
+      warper->warpImageInterpolated(frame, warped, Dstore[frame_t]);
+   else
+      warper->warpImageNormalised(frame, warped, Dstore[frame_t]);
    warper->deregisterFrame(frame);
    return warped;
 }

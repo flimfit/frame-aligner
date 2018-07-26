@@ -125,3 +125,27 @@ void interpolatePoint3d(const std::vector<cv::Point3d>& Ds, std::vector<cv::Poin
       D[i].z = vi_z[i];
    }
 }
+
+void inpaint3d(const cv::Mat& input, const cv::Mat& mask, cv::Mat& output)
+{
+   cv::Mat inpaint_mask, slice_exclude;
+   cv::compare(mask, 0, inpaint_mask, cv::CMP_EQ);
+   output = cv::Mat(3, input.size, input.type());
+
+   int dilation_size = 2;
+   cv::Mat el = cv::getStructuringElement(cv::MORPH_ELLIPSE,
+      cv::Size(2 * dilation_size + 1, 2 * dilation_size + 1),
+      cv::Point(dilation_size, dilation_size));
+
+   cv::Mat mask_slice_restrict;
+   for (int z = 0; z < input.size[0]; z++)
+   {
+      // Inpaint areas within a 5px radius of another active pixel 
+      cv::Mat mask_slice = extractSlice(inpaint_mask, z);
+      cv::erode(mask_slice, mask_slice_restrict, el);
+      cv::dilate(mask_slice_restrict, mask_slice_restrict, el);
+      cv::bitwise_xor(mask_slice, mask_slice_restrict, mask_slice);
+
+      cv::inpaint(extractSlice(input, z), mask_slice, extractSlice(output, z), 5, cv::INPAINT_NS);
+   }
+}

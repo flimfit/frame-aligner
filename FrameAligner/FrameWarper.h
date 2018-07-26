@@ -92,8 +92,9 @@ public:
    virtual double getError(const cv::Mat& img, const std::vector<cv::Point3d>& D) = 0;
    virtual void getJacobian(const cv::Mat& img, const std::vector<cv::Point3d>& D, column_vector& jac) = 0;
 
-   virtual void warpImage(const cv::Mat& img, cv::Mat& wimg, const std::vector<cv::Point3d>& D, int invalid_value = 0) = 0;
-   virtual void warpImageIntensityPreserving(const cv::Mat& img, cv::Mat& wimg, cv::Mat& coverage, const std::vector<cv::Point3d>& D);
+   virtual void warpImageInterpolated(const cv::Mat& img, cv::Mat& wimg, const std::vector<cv::Point3d>& D, int invalid_value = 0) = 0;
+   virtual void warpImage(const cv::Mat& img, cv::Mat& wimg, cv::Mat& coverage, const std::vector<cv::Point3d>& D);
+   virtual void warpImageNormalised(const cv::Mat& img, cv::Mat& wimg, const std::vector<cv::Point3d>& D, int cv_type = CV_8U);
 
    cv::Point3d warpPoint(const std::vector<cv::Point3d>& D, int x, int y, int z, int spatial_binning = 1);
    
@@ -137,7 +138,7 @@ public:
    double getError(const cv::Mat& img, const std::vector<cv::Point3d>& D);
    void getJacobian(const cv::Mat& img, const std::vector<cv::Point3d>& D, column_vector& jac);
 
-   void warpImage(const cv::Mat& img, cv::Mat& wimg, const std::vector<cv::Point3d>& D, int invalid_value = 0);
+   void warpImageInterpolated(const cv::Mat& img, cv::Mat& wimg, const std::vector<cv::Point3d>& D, int invalid_value = 0);
    
 protected:
 
