@@ -545,7 +545,7 @@ std::vector<float3> computeJacobianGpu(GpuFrame* frame, GpuWorkingSpace* w, GpuR
    size_t idx = 0;
    while(idx < nD)
    {
-      int stream_max = std::min(w->stream.size(), nD - idx);
+      int stream_max = (int) std::min(w->stream.size(), nD - idx);
       if (gpu_ref->stream_VI)
          for(int s=0; s<stream_max; s++)
             checkCudaErrors(cudaMemcpyAsync(w->VI_dW_dp + s * range_max, gpu_ref->VI_dW_dp_host + (idx + s) * range_max, 
