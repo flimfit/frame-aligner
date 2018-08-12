@@ -125,9 +125,10 @@ void FrameWarpAligner::reprocess()
 }
 
 
-RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_frame_)
+RealignmentResult FrameWarpAligner::addFrame(int frame_t, CachedObject<cv::Mat>& raw_frame_cache)
 {
-   cv::Mat raw_frame, frame;
+   cv::Mat raw_frame_, raw_frame, frame;
+   raw_frame_ = raw_frame_cache;
    raw_frame_.convertTo(raw_frame, CV_32F);
 
    raw_frame = reshapeForProcessing(raw_frame);
@@ -242,15 +243,22 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, const cv::Mat& raw_fra
    
    std::unique_lock<std::mutex> lk(align_mutex);
 
+   auto cache = Cache<cv::Mat>::getInstance();
+
+   cv::Mat realigned = reshapeForOutput(warped, CV_16U);
+   cv::Mat output_mask = reshapeForOutput(mask, CV_8U);
+   cv::Mat realigned_preserving = reshapeForOutput(intensity_preserving, CV_16U);
+
    RealignmentResult r;
-   r.frame = reshapeForOutput(raw_frame, CV_16U);
-   r.realigned = reshapeForOutput(warped, CV_16U);
-   r.mask = reshapeForOutput(mask, CV_8U);
+   r.frame = raw_frame_cache;
+   r.realigned = cache->add(realigned);
+   r.mask = cache->add(output_mask);
+   r.realigned_preserving = cache->add(realigned_preserving);
+
    r.correlation = correlation(warped_smoothed, smoothed_reference, m);
    r.unaligned_correlation = correlation(frame, smoothed_reference, m);
    r.coverage = ((double)cv::countNonZero(mask)) / (dims[X] * dims[Y] * dims[Z]);
    
-   r.realigned_preserving = reshapeForOutput(intensity_preserving, CV_16U);
    r.done = true;
    
    results[frame_t] = r;

@@ -44,7 +44,7 @@ public:
    RealignmentType getType() { return realign_params.type; };
 
    void setReference(int frame_t, const cv::Mat& reference_);
-   RealignmentResult addFrame(int frame_t, const cv::Mat& frame); 
+   RealignmentResult addFrame(int frame_t, CachedObject<cv::Mat>& frame);
    cv::Mat realignAsFrame(int frame_t, const cv::Mat& frame) { return frame; } // TODO
    void shiftPixel(int frame, double& x, double& y, double& z);
    

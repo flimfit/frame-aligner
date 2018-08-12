@@ -8,6 +8,8 @@ find_package(OpenCV 3.1 REQUIRED highgui core imgproc imgcodecs videoio photo)
 find_package(FFTW)
 find_package(TIFF)
 find_package(dlib REQUIRED)
+find_package(Boost COMPONENTS serialization filesystem)
+
 set_target_properties(dlib::dlib PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 
 check_language(CUDA)
@@ -32,6 +34,7 @@ set(SOURCE
    Sobel3d.cpp
    OptimisationModel.cpp
    FrameWarper.cpp
+   SystemMemory.cpp
 )
 
 set(HEADERS
@@ -45,6 +48,8 @@ set(HEADERS
    Sobel3d.h
    OptimisationModel.h
    FrameWarper.h
+   Cache.h
+   Cache_impl.h
 )
 
 if (CUDA_FOUND)
@@ -64,10 +69,12 @@ add_library(FrameAligner STATIC ${SOURCE} ${HEADERS})
 
 target_compile_definitions(FrameAligner PUBLIC ${EXTRA_DEFINITIONS})
 
-target_link_libraries(FrameAligner dlib::dlib
-                                   ${OpenCV_LIBS}
-                                   ${EXTRA_LIBRARIES} 
-                                   ${TIFF_LIBRARIES})
+target_link_libraries(FrameAligner PUBLIC dlib::dlib
+                                          Boost::serialization
+                                          Boost::filesystem
+                                          ${OpenCV_LIBS}
+                                          ${EXTRA_LIBRARIES} 
+                                          ${TIFF_LIBRARIES})
 
 target_include_directories(FrameAligner PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
                                                ${OpenCV_INCLUDE_DIRS}
