@@ -27,7 +27,7 @@ public:
 
    void setNumberOfFrames(int n_frame);
    void setReference(int frame_t, const cv::Mat& reference_);
-   RealignmentResult addFrame(int frame_t, CachedObject<cv::Mat>& frame);
+   void addFrame(int frame_t, CachedMat& frame);
    cv::Mat realignAsFrame(int frame_t, const cv::Mat& frame, bool interpolate_missing = true);
    void shiftPixel(int frame_t, double& x, double& y, double& z);
    double getFrameCorrelation(int frame_t) { return results[frame_t].correlation; };
@@ -39,6 +39,10 @@ public:
    void writeRealignmentInfo(std::string filename);
 
    void clearTemp();
+
+   cv::Mat getWarpedFrame(CachedMat frame, std::vector<cv::Point3d> D);
+   cv::Mat getInterpolatedWarpedFrame(CachedMat frame, std::vector<cv::Point3d> D);
+   cv::Mat getMask(CachedMat frame, std::vector<cv::Point3d> D);
 
 protected:
 
@@ -52,11 +56,10 @@ protected:
    std::shared_ptr<AbstractFrameWarper> warper;
    std::shared_ptr<AbstractFrameWarper> alt_warper;
 
-
    cv::Point3d Dlast;
 
    std::vector<std::vector<cv::Point3d>> Dstore;
-   std::vector<RealignmentResult> results;
+   //std::vector<RealignmentResult> results;
 
    int n_dim = 2;
    int nD = 10;

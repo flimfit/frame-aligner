@@ -41,10 +41,10 @@ void RigidFrameAligner::setReference(int frame_t, const cv::Mat& reference_)
    cv::logPolar(reference, log_polar0, centre, 1.0, CV_WARP_FILL_OUTLIERS);
 }
 
-RealignmentResult RigidFrameAligner::addFrame(int frame_t, CachedObject<cv::Mat>& frame_)
+void RigidFrameAligner::addFrame(int frame_t, CachedMat& frame_)
 {
    cv::Mat frame;
-   frame_.get().copyTo(frame);
+   frame_->get().copyTo(frame);
 
    if (realign_params.spatial_binning > 0)
       frame = downsample(frame, realign_params.spatial_binning);
@@ -107,8 +107,6 @@ RealignmentResult RigidFrameAligner::addFrame(int frame_t, CachedObject<cv::Mat>
    */
 
    frames_complete++;
-
-   return r; // TODO
 }
 
 void RigidFrameAligner::shiftPixel(int frame, double& x, double& y, double& z)

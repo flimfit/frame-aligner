@@ -77,7 +77,7 @@ void FrameWarpAligner::setNumberOfFrames(int n_frames_)
    results.clear();
    
    Dstore.resize(n_frames);
-   results.resize(n_frames);
+   //results.resize(n_frames);
 }
 
 
@@ -125,10 +125,10 @@ void FrameWarpAligner::reprocess()
 }
 
 
-RealignmentResult FrameWarpAligner::addFrame(int frame_t, CachedObject<cv::Mat>& raw_frame_cache)
+void FrameWarpAligner::addFrame(int frame_t, CachedMat& raw_frame_cache)
 {
    cv::Mat raw_frame_, raw_frame, frame;
-   raw_frame_ = raw_frame_cache;
+   raw_frame_ = raw_frame_cache->get();
    raw_frame_.convertTo(raw_frame, CV_32F);
 
    raw_frame = reshapeForProcessing(raw_frame);
@@ -226,34 +226,25 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, CachedObject<cv::Mat>&
    Dstore[frame_t] = D;
    Dlast = *(D.end() - 2);
 
-   cv::Mat warped_smoothed, warped, mask, intensity_preserving, m;
+   cv::Mat warped_smoothed;
    warper->warpImageInterpolated(frame, warped_smoothed, D);
-         
    warper->deregisterFrame(frame);
-   warper->registerFrame(raw_frame);
-   warper->warpImageInterpolated(raw_frame, warped, D);
-   warper->warpImage(raw_frame, intensity_preserving, mask, D);
-   intensity_preserving /= mask;
 
-   warper->deregisterFrame(raw_frame);
-   
+   cv::Mat m;
+   cv::Mat mask = getMask(raw_frame_cache, D);   
    cv::compare(mask, 0, m, cv::CMP_GT);
 //   inpaint3d(intensity_preserving, mask, warped);
-
    
    std::unique_lock<std::mutex> lk(align_mutex);
 
    auto cache = Cache<cv::Mat>::getInstance();
-
-   cv::Mat realigned = reshapeForOutput(warped, CV_16U);
-   cv::Mat output_mask = reshapeForOutput(mask, CV_8U);
-   cv::Mat realigned_preserving = reshapeForOutput(intensity_preserving, CV_16U);
+    
 
    RealignmentResult r;
    r.frame = raw_frame_cache;
-   r.realigned = cache->add(realigned);
-   r.mask = cache->add(output_mask);
-   r.realigned_preserving = cache->add(realigned_preserving);
+   r.realigned = cache->add(std::bind(&FrameWarpAligner::getInterpolatedWarpedFrame, this, raw_frame_cache, D));
+   r.mask = cache->add(std::bind(&FrameWarpAligner::getMask, this, raw_frame_cache, D));
+   r.realigned_preserving = cache->add(std::bind(&FrameWarpAligner::getWarpedFrame, this, raw_frame_cache, D));
 
    r.correlation = correlation(warped_smoothed, smoothed_reference, m);
    r.unaligned_correlation = correlation(frame, smoothed_reference, m);
@@ -265,8 +256,6 @@ RealignmentResult FrameWarpAligner::addFrame(int frame_t, CachedObject<cv::Mat>&
    lk.unlock();
 
    align_cv.notify_all();
-
-   return r;
 }
 
 void FrameWarpAligner::shiftPixel(int frame_t, double& x, double& y, double& z)
@@ -330,4 +319,33 @@ void FrameWarpAligner::writeRealignmentInfo(std::string filename)
          os << ", " << Dstore[i][j].x << ", " << Dstore[i][j].y << ", " << Dstore[i][j].z;
       os << "\n";
    }
+}
+
+
+cv::Mat FrameWarpAligner::getWarpedFrame(CachedMat frame_, std::vector<cv::Point3d> D)
+{
+   cv::Mat frame, intensity_preserving, mask;
+   frame_->get().convertTo(frame, CV_32F);
+   warper->warpImage(frame, intensity_preserving, mask, D);
+   intensity_preserving /= mask;
+   return reshapeForOutput(intensity_preserving, CV_16U);
+}
+
+cv::Mat FrameWarpAligner::getInterpolatedWarpedFrame(CachedMat frame_, std::vector<cv::Point3d> D)
+{
+   cv::Mat frame, warped;
+   frame_->get().convertTo(frame, CV_32F);
+   warper->registerFrame(frame);
+   warper->warpImageInterpolated(frame, warped, D);
+   warper->deregisterFrame(frame);
+
+   return reshapeForOutput(warped, CV_16U);
+}
+
+cv::Mat FrameWarpAligner::getMask(CachedMat frame_, std::vector<cv::Point3d> D)
+{
+   cv::Mat frame, intensity_preserving, mask;
+   frame_->get().convertTo(frame, CV_32F);
+   warper->warpImage(frame, intensity_preserving, mask, D);
+   return reshapeForOutput(mask, CV_32F);
 }
