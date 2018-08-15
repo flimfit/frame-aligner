@@ -25,7 +25,7 @@ AbstractFrameAligner* AbstractFrameAligner::createFrameAligner(RealignmentParame
    switch (params.type)
    {
    case RealignmentType::None:
-      return nullptr;
+      return new NullFrameAligner();
    //case RealignmentType::RigidBody:
    //   throw std::runtime_error("Rigid body is not currently supported");
    default:

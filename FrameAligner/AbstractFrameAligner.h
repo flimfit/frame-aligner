@@ -8,6 +8,7 @@
 template<>
 size_t Cache<cv::Mat>::getSize(const cv::Mat& obj);
 
+typedef std::shared_ptr<CachedObject<cv::Mat>> CachedMat;
 
 enum class DefaultReferenceFrame
 {
@@ -49,16 +50,16 @@ public:
 class RealignmentResult
 {
 public:
-   CachedObject<cv::Mat> frame;
-   CachedObject<cv::Mat> realigned;
-   CachedObject<cv::Mat> realigned_preserving;
-   CachedObject<cv::Mat> mask;
+   CachedMat frame;
+   CachedMat realigned;
+   CachedMat realigned_preserving;
+   CachedMat mask;
    double correlation = 0;
    double unaligned_correlation = 0;
    double coverage = 0;
    bool done = false;
 
-   bool useFrame(const RealignmentParameters& p)
+   bool useFrame(const RealignmentParameters& p) const
    {
       return ((correlation >= p.correlation_threshold) && (coverage >= p.coverage_threshold));
    }
@@ -72,7 +73,7 @@ public:
 
    static AbstractFrameAligner* createFrameAligner(RealignmentParameters params);
 
-   virtual bool empty() = 0;
+   //virtual bool empty() = 0;
    virtual void clear() = 0;
 
    bool frameValid(int frame) { return true; } // worse case will just use last
@@ -83,11 +84,11 @@ public:
    void setRealignmentParams(RealignmentParameters params_) { realign_params = params_; }
    void setImageScanParams(ImageScanParameters params_) { image_params = params_; }
    virtual void setReference(int frame_t, const cv::Mat& reference_) = 0;
-   virtual RealignmentResult addFrame(int frame_t, CachedObject<cv::Mat>& frame) = 0; // should return aligned frame
+   virtual void addFrame(int frame_t, CachedMat& frame) = 0; // should return aligned frame
    virtual cv::Mat realignAsFrame(int frame_t, const cv::Mat& frame, bool interpolate_missing = true) = 0; // should realign provided frame as if it was frame_t
    virtual void shiftPixel(int frame_t, double& x, double& y, double& z) = 0;
-   virtual double getFrameCorrelation(int frame_t) { return 0.; }
-   virtual double getFrameCoverage(int frame_t) { return 0.; }
+   virtual double getFrameCorrelation(int frame_t) { return 1.; }
+   virtual double getFrameCoverage(int frame_t) { return 1.; }
    virtual void setNumberOfFrames(int n_frames_) { n_frames = n_frames_; }
 
    virtual void writeRealignmentInfo(std::string filename) {};
@@ -96,11 +97,8 @@ public:
 
    virtual void clearTemp() {};
 
-   RealignmentResult& getResult(int frame)
-   {
-      if (frame >= n_frames) throw std::runtime_error("Frame index too large");
-      return results[frame];
-   }
+   const std::map<size_t, RealignmentResult>& getRealignmentResults() { return results; }
+   const RealignmentResult& getRealignmentResult(size_t frame) { return results.find(frame)->second; }
 
 protected:
    RealignmentParameters realign_params;
@@ -108,6 +106,20 @@ protected:
    cv::Mat reference;
    int n_frames = 1;
 
-   std::vector<RealignmentResult> results;
+   std::map<size_t,RealignmentResult> results;
 };
 
+class NullFrameAligner : public AbstractFrameAligner
+{
+public:
+
+   //bool empty() {  };
+   void clear() {};
+   bool frameReady(int frame) { return true; };
+
+   RealignmentType getType() { return RealignmentType::None; };
+   void setReference(int frame_t, const cv::Mat& reference_) {};
+   void addFrame(int frame_t, CachedMat& frame) {}; // should return aligned frame
+   cv::Mat realignAsFrame(int frame_t, const cv::Mat& frame, bool interpolate_missing = true) { return frame; }; // should realign provided frame as if it was frame_t
+   void shiftPixel(int frame_t, double& x, double& y, double& z) {};
+};
