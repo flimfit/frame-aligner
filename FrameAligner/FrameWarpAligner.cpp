@@ -99,6 +99,7 @@ void FrameWarpAligner::setReference(int frame_t, const cv::Mat& reference_)
    reference.convertTo(reference, CV_32F);
    reference = reshapeForProcessing(reference);
    smoothStack(reference, smoothed_reference);
+   smoothed_reference += 1.0f;
 
    cv::Mat reference_downsampled = downsample(reference, phase_downsampling);
    auto downsampled_size = reference_downsampled.size;
@@ -148,6 +149,7 @@ void FrameWarpAligner::addFrame(int frame_t, CachedMat& raw_frame_cache)
 
 
    smoothStack(raw_frame, frame);
+   frame += 1.0f;
 
    warper->registerFrame(frame);
    auto model = OptimisationModel(warper, frame);

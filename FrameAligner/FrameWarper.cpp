@@ -43,39 +43,28 @@ void CpuFrameWarper::warpImageInterpolated(const cv::Mat& img, cv::Mat& wimg, co
             cv::Point3i loc0(floor(loc.x), floor(loc.y), floor(loc.z));
             cv::Point3d locf(loc.x - loc0.x, loc.y - loc0.y, loc.z - loc0.z);
 
-            // Clamp values slightly outside range
-            if ((loc.x < 0) && (loc.x > -1)) loc.x = 0;
-            if ((loc.y < 0) && (loc.y > -1)) loc.y = 0;
-            if ((loc.z < 0) && (loc.z > -1)) loc.z = 0;
-
-            if ((loc.x > (dims[X] - 1)) && (loc.x < dims[X])) loc.x = dims[X]-1;
-            if ((loc.y > (dims[Y] - 1)) && (loc.y < dims[Y])) loc.y = dims[Y]-1;
-            if ((loc.z > (dims[Z] - 1)) && (loc.z < dims[Z])) loc.z = dims[Z]-1;
-
             cv::Point3i loc1 = loc0;
-            if (loc1.x < (dims[X]-1)) loc1.x++;
-            if (loc1.y < (dims[Y]-1)) loc1.y++;
-            if (loc1.z < (dims[Z]-1)) loc1.z++;
-            
-            if (isValidPoint(loc0, dims))
-            {
-               wimg.at<float>(z, y, x) =
-                  (1 - locf.z) * (
-                     img.at<float>(loc0.z, loc0.y, loc0.x) * (1 - locf.y) * (1 - locf.x) + 
-                     img.at<float>(loc0.z, loc1.y, loc0.x) * (    locf.y) * (1 - locf.x) + 
-                     img.at<float>(loc0.z, loc0.y, loc1.x) * (1 - locf.y) * (    locf.x) + 
-                     img.at<float>(loc0.z, loc1.y, loc1.x) * (    locf.y) * (    locf.x)
+            loc1.x++, loc1.y++, loc1.z++;
+
+            auto& px = wimg.at<float>(z, y, x);
+
+            px =
+               (1 - locf.z) * (
+                  getZeroPadded<float>(img, loc0.z, loc0.y, loc0.x) * (1 - locf.y) * (1 - locf.x) +
+                  getZeroPadded<float>(img, loc0.z, loc1.y, loc0.x) * (locf.y) * (1 - locf.x) +
+                  getZeroPadded<float>(img, loc0.z, loc0.y, loc1.x) * (1 - locf.y) * (locf.x) +
+                  getZeroPadded<float>(img, loc0.z, loc1.y, loc1.x) * (locf.y) * (locf.x)
                   );
-               if (n_dim == 3)
-                  wimg.at<float>(z, y, x) +=
-                     locf.z * (
-                        img.at<float>(loc1.z, loc0.y, loc0.x) * (1 - locf.y) * (1 - locf.x) + 
-                        img.at<float>(loc1.z, loc1.y, loc0.x) * (    locf.y) * (1 - locf.x) + 
-                        img.at<float>(loc1.z, loc0.y, loc1.x) * (1 - locf.y) * (    locf.x) + 
-                        img.at<float>(loc1.z, loc1.y, loc1.x) * (    locf.y) * (    locf.x)
-                     );
-            }
-               
+            if (n_dim == 3)
+               px +=
+               locf.z * (
+                  getZeroPadded<float>(img, loc1.z, loc0.y, loc0.x) * (1 - locf.y) * (1 - locf.x) +
+                  getZeroPadded<float>(img, loc1.z, loc1.y, loc0.x) * (locf.y) * (1 - locf.x) +
+                  getZeroPadded<float>(img, loc1.z, loc0.y, loc1.x) * (1 - locf.y) * (locf.x) +
+                  getZeroPadded<float>(img, loc1.z, loc1.y, loc1.x) * (locf.y) * (locf.x)
+                  );
+
+            if (px == 0) px = invalid_value;
          }
 }
 

@@ -214,7 +214,7 @@ __device__ float warpAndGetError(WarpParams w, int idx)
    float v = getPoint(w.tex_id, p);
 
    float mask = (v != 0.0f) ? 1.0f : 0.0f; // set out of range values to zero
-   v -= (1.0f + w.reference[idx]); // we have added 1 to use zero as special case
+   v -= w.reference[idx]; // we have added 1 to use zero as special case
    return mask * v; 
 }
 
@@ -287,7 +287,7 @@ __global__ void warp(WarpParams w, float* warp_img, int z)
       p.x += x; p.y += y; p.z += z;
       float v = getPoint(w.tex_id, p);
 
-      warp_img[idx] = (v != 0.0f) * (v - 1.0f);
+      warp_img[idx] = v;
    }
 }
 
@@ -387,15 +387,10 @@ void GpuFrame::set(const cv::Mat& frame_)
 
    frame = frame_;
 
-   // Add 1 to frame value -> we want to use zero as a special case
-   cv::Mat frame_cpy;
-   frame.copyTo(frame_cpy);
-   frame_cpy += 1.0f;
-
    cudaMemcpy3DParms copy_params = { 0 };
    cudaExtent extent = make_cudaExtent(size.x, size.y, size.z);
 
-   copy_params.srcPtr = make_cudaPitchedPtr((void*)frame_cpy.data, size.x * sizeof(float), size.x, size.y);
+   copy_params.srcPtr = make_cudaPitchedPtr((void*)frame.data, size.x * sizeof(float), size.x, size.y);
    copy_params.dstArray = cu_array;
    copy_params.extent = extent;
    copy_params.kind = cudaMemcpyHostToDevice;

@@ -8,7 +8,7 @@
 template <typename T>
 bool isValidPoint(const cv::Point3_<T>& pt, const std::vector<int>& dims)
 {
-   int validXY = 
+   bool validXY = 
          (pt.x >= 0) &&
          (pt.y >= 0) && 
          (pt.x <= (dims[X] - 1)) &&
@@ -23,7 +23,7 @@ bool isValidPoint(const cv::Point3_<T>& pt, const std::vector<int>& dims)
 template <typename T>
 bool isValidPoint(const cv::Vec<T,3>& pt, const std::vector<int>& dims)
 {
-   int validXY = 
+   bool validXY = 
          (pt[X] >= 0) &&
          (pt[Y] >= 0) && 
          (pt[X] <= (dims[X] - 1)) &&
@@ -33,6 +33,17 @@ bool isValidPoint(const cv::Vec<T,3>& pt, const std::vector<int>& dims)
       return validXY && (pt[Z] >= 0) && (pt[Z] <= (dims[Z] - 1));
    else 
       return validXY;            
+}
+
+
+template <typename T>
+T getZeroPadded(const cv::Mat& img, int z, int y, int x)
+{
+   bool valid =
+      (x >= 0) && (x < img.size[X]) &&
+      (y >= 0) && (y < img.size[Y]) &&
+      ((img.size[Z] == 1) || ((z >= 0) && (z < img.size[Z])));
+   return (valid) ? img.at<T>(z, y, x) : 0.0f;
 }
 
 class Range
