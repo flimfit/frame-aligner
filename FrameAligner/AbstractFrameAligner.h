@@ -54,9 +54,9 @@ public:
    CachedMat realigned;
    CachedMat realigned_preserving;
    CachedMat mask;
-   double correlation = 0;
-   double unaligned_correlation = 0;
-   double coverage = 0;
+   double correlation = 1;
+   double unaligned_correlation = 1;
+   double coverage = 1;
    bool done = false;
 
    bool useFrame(const RealignmentParameters& p) const
@@ -73,7 +73,6 @@ public:
 
    static AbstractFrameAligner* createFrameAligner(RealignmentParameters params);
 
-   //virtual bool empty() = 0;
    virtual void clear() = 0;
 
    bool frameValid(int frame) { return true; } // worse case will just use last
@@ -98,7 +97,15 @@ public:
    virtual void clearTemp() {};
 
    const std::map<size_t, RealignmentResult>& getRealignmentResults() { return results; }
-   const RealignmentResult& getRealignmentResult(size_t frame) { return results.find(frame)->second; }
+   
+   RealignmentResult getRealignmentResult(size_t frame) 
+   {
+      auto it = results.find(frame);
+      if (it != results.end())
+         return results.find(frame)->second;
+      else
+         return RealignmentResult();
+   }
 
 protected:
    RealignmentParameters realign_params;
