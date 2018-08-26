@@ -102,8 +102,8 @@ Cache<T>::Cache(size_t cache_size_) :
 {
    next_id = 0;
    if (cache_size == 0)
-      cache_size = 1LL << 31; // 2Gb
-
+      //      cache_size = 1LL << 31; // 2Gb
+      cache_size = 0.5 * getMemorySize();
 
    // Create temporary folder
    temp_path = boost::filesystem::temp_directory_path() / "galene";
