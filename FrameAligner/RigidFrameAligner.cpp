@@ -41,7 +41,7 @@ void RigidFrameAligner::setReference(int frame_t, const cv::Mat& reference_)
    cv::logPolar(reference, log_polar0, centre, 1.0, CV_WARP_FILL_OUTLIERS);
 }
 
-void RigidFrameAligner::addFrame(int frame_t, CachedMat& frame_)
+void RigidFrameAligner::addFrame(int frame_t, CachedMat frame_)
 {
    cv::Mat frame;
    frame_->get().copyTo(frame);

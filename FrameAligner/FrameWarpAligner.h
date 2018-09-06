@@ -27,7 +27,7 @@ public:
 
    void setNumberOfFrames(int n_frame);
    void setReference(int frame_t, const cv::Mat& reference_);
-   void addFrame(int frame_t, CachedMat& frame);
+   void addFrame(int frame_t, CachedMat frame);
    cv::Mat realignAsFrame(int frame_t, const cv::Mat& frame, bool interpolate_missing = true);
    void shiftPixel(int frame_t, double& x, double& y, double& z);
    double getFrameCorrelation(int frame_t) { return results[frame_t].correlation; };

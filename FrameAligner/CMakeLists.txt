@@ -35,6 +35,7 @@ set(SOURCE
    OptimisationModel.cpp
    FrameWarper.cpp
    SystemMemory.cpp
+   CvCache.cpp
 )
 
 set(HEADERS
@@ -50,6 +51,7 @@ set(HEADERS
    FrameWarper.h
    Cache.h
    Cache_impl.h
+   CvCache.h
 )
 
 if (CUDA_FOUND)

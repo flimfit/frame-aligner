@@ -268,9 +268,11 @@ void Cache<T>::deletor()
    }
 }
 
+/*
 template <typename T>
 size_t Cache<T>::getSize(const T& obj)
 {
    static_assert(false, "Please provide a concrete implementation for getSize");
 }
+*/
 

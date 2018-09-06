@@ -5,8 +5,8 @@
 #include <functional>
 #include <fstream>
 #include <algorithm>
-
 #include "GpuFrameWarper.h"
+#include "Cache_impl.h"
 
 const bool FrameWarpAligner::supress_hotspots = false;
 
@@ -126,7 +126,7 @@ void FrameWarpAligner::reprocess()
 }
 
 
-void FrameWarpAligner::addFrame(int frame_t, CachedMat& raw_frame_cache)
+void FrameWarpAligner::addFrame(int frame_t, CachedMat raw_frame_cache)
 {
    cv::Mat raw_frame_, raw_frame, frame;
    raw_frame_ = raw_frame_cache->get();
