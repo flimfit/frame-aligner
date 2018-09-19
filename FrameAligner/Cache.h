@@ -45,14 +45,18 @@ public:
    std::shared_ptr<CachedObject<T>> add(generator_fcn fcn);
    std::shared_ptr<CachedObject<T>> add(const T& fcn);
 
+   void setSize(size_t size);
+   void setUnlimited();
+
 protected:
 
    Cache(size_t cache_size = 0);
    T get(size_t id, generator_fcn fcn);
    void remove(size_t id);
    void insert(size_t id, const T& obj);
-   void eraseBack();
    void deletor();
+
+   void enforceSize();
 
    void write(const std::string& filename, const T& obj);
    T read(const std::string& filename) const;

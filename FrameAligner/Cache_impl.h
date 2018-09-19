@@ -101,9 +101,6 @@ Cache<T>::Cache(size_t cache_size_) :
    cache_size(cache_size_), current_size(0)
 {
    next_id = 0;
-   if (cache_size == 0)
-      //      cache_size = 1LL << 31; // 2Gb
-      cache_size = 0.5 * getMemorySize();
 
    // Create temporary folder
    temp_path = boost::filesystem::temp_directory_path() / "galene";
@@ -116,8 +113,18 @@ Cache<T>::Cache(size_t cache_size_) :
    deletor_thread = std::thread(&Cache<T>::deletor, this);
 }
 
+template <typename T>
+void Cache<T>::setSize(size_t size)
+{
+   cache_size = size;
+   enforceSize();
+}
 
-
+template <typename T>
+void Cache<T>::setUnlimited()
+{
+   cache_size = 0;
+}
 
 template <typename T>
 Cache<T>::~Cache()
@@ -132,6 +139,7 @@ std::shared_ptr<CachedObject<T>> Cache<T>::add(generator_fcn fcn)
 {
    auto cache_obj = std::make_shared<CachedObject<T>>(this, next_id++, fcn);
 
+   // precache
    if (current_size < 0.8 * cache_size)
       cache_obj->get();
 
@@ -164,6 +172,15 @@ void Cache<T>::insert(size_t id, const T& obj)
    queue.push_front(id);
 
    current_size += getSize(obj);
+
+   enforceSize();
+}
+
+
+template  <typename T>
+void Cache<T>::enforceSize()
+{
+   if (current_size == 0) return;
 
    std::unique_lock<std::mutex> del_lk(deletor_mutex);
    while (current_size > cache_size)
