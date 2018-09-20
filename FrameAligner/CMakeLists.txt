@@ -8,7 +8,7 @@ find_package(OpenCV 3.1 REQUIRED highgui core imgproc imgcodecs videoio photo)
 find_package(FFTW)
 find_package(TIFF)
 find_package(dlib REQUIRED)
-find_package(Boost COMPONENTS serialization filesystem)
+find_package(Boost COMPONENTS serialization filesystem iostreams)
 
 set_target_properties(dlib::dlib PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 
@@ -74,6 +74,7 @@ target_compile_definitions(FrameAligner PUBLIC ${EXTRA_DEFINITIONS})
 target_link_libraries(FrameAligner PUBLIC dlib::dlib
                                           Boost::serialization
                                           Boost::filesystem
+                                          Boost::iostreams
                                           ${OpenCV_LIBS}
                                           ${EXTRA_LIBRARIES} 
                                           ${TIFF_LIBRARIES})
