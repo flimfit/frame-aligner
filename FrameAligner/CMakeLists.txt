@@ -72,9 +72,7 @@ add_library(FrameAligner STATIC ${SOURCE} ${HEADERS})
 target_compile_definitions(FrameAligner PUBLIC ${EXTRA_DEFINITIONS})
 
 target_link_libraries(FrameAligner PUBLIC dlib::dlib
-                                          Boost::serialization
-                                          Boost::filesystem
-                                          Boost::iostreams
+                                          ${Boost_LIBRARIES}
                                           ${OpenCV_LIBS}
                                           ${EXTRA_LIBRARIES} 
                                           ${TIFF_LIBRARIES})
