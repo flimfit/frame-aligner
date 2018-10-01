@@ -12,6 +12,7 @@ void Cleanup();
 
 std::vector<std::shared_ptr<AbstractFrameAligner>> aligners;
 
+DLL_EXPORT_SYM
 void mexFunction(int nlhs, mxArray *plhs[],
    int nrhs, const mxArray *prhs[])
 {
