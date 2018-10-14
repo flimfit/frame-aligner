@@ -140,7 +140,7 @@ std::shared_ptr<CachedObject<T>> Cache<T>::add(generator_fcn fcn)
    auto cache_obj = std::make_shared<CachedObject<T>>(this, next_id++, fcn);
 
    // precache
-   if (current_size < 0.8 * cache_size)
+   if ((cache_size == 0) || (current_size < 0.8 * cache_size))
       cache_obj->get();
 
    return cache_obj;
@@ -180,7 +180,7 @@ void Cache<T>::insert(size_t id, const T& obj)
 template  <typename T>
 void Cache<T>::enforceSize()
 {
-   if (current_size == 0) return;
+   if (cache_size == 0) return;
 
    std::unique_lock<std::mutex> del_lk(deletor_mutex);
    while (current_size > cache_size)
