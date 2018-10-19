@@ -9,6 +9,7 @@ find_package(FFTW)
 find_package(TIFF)
 find_package(dlib REQUIRED)
 find_package(Boost COMPONENTS serialization filesystem iostreams)
+find_package(LibLZMA REQUIRED)
 
 set_target_properties(dlib::dlib PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 
@@ -19,9 +20,9 @@ if(CMAKE_CUDA_COMPILER AND (NOT APPLE OR CMAKE_CXX_COMPILER_ID MATCHES "AppleCla
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -arch=sm_30 -w")
 endif()
 
-if(APPLE)
-    set(EXTRA_LIBRARIES "-framework Accelerate ${FFTW_LIBRARIES}") # for dlib
-endif()
+#if(APPLE)
+#    set(EXTRA_LIBRARIES "-framework Accelerate ${FFTW_LIBRARIES}") # for dlib
+#endif()
 
 
 set(SOURCE
@@ -75,7 +76,8 @@ target_link_libraries(FrameAligner PUBLIC dlib::dlib
                                           ${Boost_LIBRARIES}
                                           ${OpenCV_LIBS}
                                           ${EXTRA_LIBRARIES} 
-                                          ${TIFF_LIBRARIES})
+                                          ${TIFF_LIBRARIES}
+                                          ${LIBLZMA_LIBRARIES})
 
 target_include_directories(FrameAligner PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
                                                ${OpenCV_INCLUDE_DIRS}
