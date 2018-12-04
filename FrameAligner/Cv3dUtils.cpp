@@ -149,3 +149,13 @@ void inpaint3d(const cv::Mat& input, const cv::Mat& mask, cv::Mat& output)
       cv::inpaint(extractSlice(input, z), mask_slice, extractSlice(output, z), 5, cv::INPAINT_NS);
    }
 }
+
+bool matsSameSizeType(const cv::Mat& a, const cv::Mat& b)
+{
+   if (a.type() != b.type()) return false;
+   if (a.dims != b.dims) return false;
+   bool same = true;
+   for (int i = 0; i < a.dims; i++)
+      same &= (a.size[i] == b.size[i]);
+   return same;
+}

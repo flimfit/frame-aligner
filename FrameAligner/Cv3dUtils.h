@@ -21,6 +21,8 @@ void interpolatePoint3d(const std::vector<cv::Point3d>& Ds, std::vector<cv::Poin
 
 void inpaint3d(const cv::Mat& input, const cv::Mat& mask, cv::Mat& output);
 
+bool matsSameSizeType(const cv::Mat& a, const cv::Mat& b);
+
 BOOST_SERIALIZATION_SPLIT_FREE(cv::Mat)
 
 namespace boost {
