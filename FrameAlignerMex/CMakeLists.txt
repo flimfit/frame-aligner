@@ -13,7 +13,7 @@ message("Set Matlab root: ${Matlab_ROOT_DIR}")
 
 
 set(MATLAB_FIND_DEBUG TRUE)
-find_package(Matlab COMPONENTS MEX_COMPILER MX_LIBRARY REQUIRED)
+find_package(Matlab COMPONENTS MEX_COMPILER MX_LIBRARY)
 
 set(CMAKE_DEBUG_POSTFIX "")
 
@@ -26,14 +26,14 @@ set(HEADERS
 )
 
 if (MATLAB_FOUND)
-	matlab_add_mex(NAME FrameAlignerMex SRC ${SOURCE} ${HEADERS} LINK_TO FrameAligner)	
-	
+	matlab_add_mex(NAME FrameAlignerMex SRC ${SOURCE} ${HEADERS} LINK_TO FrameAligner)
+
 	if (FrameAlignerMex_OUT_DIR)
 		if (WIN32)
 			# For windows, use deployqt to marshall all dlls etc
-			add_custom_command(TARGET FrameAlignerMex POST_BUILD COMMAND ${CMAKE_COMMAND} -E 
+			add_custom_command(TARGET FrameAlignerMex POST_BUILD COMMAND ${CMAKE_COMMAND} -E
 				copy_directory $<TARGET_FILE_DIR:FrameAlignerMex> ${FrameAlignerMex_OUT_DIR})
-			
+
 			if (EXISTS "$ENV{MKLROOT}")
 				# install MKL redist's if we used it
 				get_filename_component(INTEL_REDIST "$ENV{MKLROOT}/../redist/intel64_win/compiler/" REALPATH)
@@ -41,7 +41,7 @@ if (MATLAB_FOUND)
 			endif()
 		else()
 			# On mac, just copy the build file
-			add_custom_command(TARGET FrameAlignerMex POST_BUILD COMMAND ${CMAKE_COMMAND} -E 
+			add_custom_command(TARGET FrameAlignerMex POST_BUILD COMMAND ${CMAKE_COMMAND} -E
 				copy $<TARGET_FILE:FrameAlignerMex> ${FrameAlignerMex_OUT_DIR})
 		endif()
 	endif()
