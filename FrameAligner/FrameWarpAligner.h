@@ -42,7 +42,7 @@ public:
 
    cv::Mat getWarpedFrame(CachedMat frame, std::vector<cv::Point3d> D);
    cv::Mat getInterpolatedWarpedFrame(CachedMat frame, std::vector<cv::Point3d> D);
-   cv::Mat getMask(CachedMat frame, std::vector<cv::Point3d> D);
+   cv::Mat getMask(CachedMat frame, std::vector<cv::Point3d> D, bool reshape_for_output = true);
 
 protected:
 
