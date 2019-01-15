@@ -9,7 +9,6 @@ find_package(FFTW)
 find_package(TIFF)
 find_package(dlib REQUIRED)
 find_package(Boost COMPONENTS serialization filesystem iostreams)
-find_package(LibLZMA REQUIRED)
 
 set_target_properties(dlib::dlib PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 
@@ -59,7 +58,7 @@ if (CUDA_FOUND)
    set(SOURCE ${SOURCE}
               GpuFrameWarper.cpp
               GpuFrameWarperKernels.cu)
-   
+
    set(HEADERS ${HEADERS}
                GpuFrameWarper.h
                GpuFrameWarperKernels.h
@@ -75,9 +74,8 @@ target_compile_definitions(FrameAligner PUBLIC ${EXTRA_DEFINITIONS})
 target_link_libraries(FrameAligner PUBLIC dlib::dlib
                                           ${Boost_LIBRARIES}
                                           ${OpenCV_LIBS}
-                                          ${EXTRA_LIBRARIES} 
-                                          ${TIFF_LIBRARIES}
-                                          ${LIBLZMA_LIBRARIES})
+                                          ${EXTRA_LIBRARIES}
+                                          ${TIFF_LIBRARIES})
 
 target_include_directories(FrameAligner PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
                                                ${OpenCV_INCLUDE_DIRS}
@@ -85,7 +83,7 @@ target_include_directories(FrameAligner PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
                                                ${FFTW_INCLUDE_DIRS})
 
 if(CUDA_FOUND AND APPLE)
-    # We need to add the path to the driver (libcuda.dylib) as an rpath, 
+    # We need to add the path to the driver (libcuda.dylib) as an rpath,
     # so that the static cuda runtime can find it at runtime.
     set_property(TARGET FrameAligner PROPERTY 
                  BUILD_RPATH ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
