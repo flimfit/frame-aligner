@@ -33,12 +33,12 @@ void writeScaledImage(const std::string& filename, const cv::Mat& intensity_)
    if (intensity.dims == 2)
    {
       std::vector<int> dims = { 1, intensity.size[0], intensity.size[1] };
-      intensity.reshape(3, dims);
+      intensity.reshape(intensity.channels(), 3, dims.data());
    }
 
    cv::Scalar mean, std;
    cv::meanStdDev(intensity, mean, std);
-   double i_max = mean[0] + 1.96 * std[0]; // 97.5% 
+   double i_max = mean[0] + 1.96 * std[0]; // 97.5%
 
    std::vector<cv::Mat> stack;
 
