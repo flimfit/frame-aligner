@@ -128,6 +128,8 @@ void FrameWarpAligner::reprocess()
 
 void FrameWarpAligner::addFrame(int frame_t, CachedMat raw_frame_cache)
 {
+   if (reference.empty()) throw std::runtime_error("Reference imaging not yet set");
+
    cv::Mat raw_frame_, raw_frame, frame;
    raw_frame_ = raw_frame_cache->get();
    raw_frame_.convertTo(raw_frame, CV_32F);
@@ -233,7 +235,7 @@ void FrameWarpAligner::addFrame(int frame_t, CachedMat raw_frame_cache)
    warper->deregisterFrame(frame);
 
    cv::Mat m;
-   cv::Mat mask = getMask(raw_frame_cache, D);   
+   cv::Mat mask = getMask(raw_frame_cache, D, false);   
    cv::compare(mask, 0, m, cv::CMP_GT);
 //   inpaint3d(intensity_preserving, mask, warped);
    
@@ -245,7 +247,7 @@ void FrameWarpAligner::addFrame(int frame_t, CachedMat raw_frame_cache)
    RealignmentResult r;
    r.frame = raw_frame_cache;
    r.realigned = cache->add(std::bind(&FrameWarpAligner::getInterpolatedWarpedFrame, this, raw_frame_cache, D));
-   r.mask = cache->add(std::bind(&FrameWarpAligner::getMask, this, raw_frame_cache, D));
+   r.mask = cache->add(std::bind(&FrameWarpAligner::getMask, this, raw_frame_cache, D, true));
    r.realigned_preserving = cache->add(std::bind(&FrameWarpAligner::getWarpedFrame, this, raw_frame_cache, D));
 
    r.correlation = correlation(warped_smoothed, smoothed_reference, m);
@@ -328,6 +330,7 @@ cv::Mat FrameWarpAligner::getWarpedFrame(CachedMat frame_, std::vector<cv::Point
 {
    cv::Mat frame, intensity_preserving, mask;
    frame_->get().convertTo(frame, CV_32F);
+   frame = reshapeForProcessing(frame);
    warper->warpImage(frame, intensity_preserving, mask, D);
    intensity_preserving /= mask;
    return reshapeForOutput(intensity_preserving, CV_16U);
@@ -337,6 +340,7 @@ cv::Mat FrameWarpAligner::getInterpolatedWarpedFrame(CachedMat frame_, std::vect
 {
    cv::Mat frame, warped;
    frame_->get().convertTo(frame, CV_32F);
+   frame = reshapeForProcessing(frame);
    warper->registerFrame(frame);
    warper->warpImageInterpolated(frame, warped, D);
    warper->deregisterFrame(frame);
@@ -344,10 +348,11 @@ cv::Mat FrameWarpAligner::getInterpolatedWarpedFrame(CachedMat frame_, std::vect
    return reshapeForOutput(warped, CV_16U);
 }
 
-cv::Mat FrameWarpAligner::getMask(CachedMat frame_, std::vector<cv::Point3d> D)
+cv::Mat FrameWarpAligner::getMask(CachedMat frame_, std::vector<cv::Point3d> D, bool reshape_for_output)
 {
    cv::Mat frame, intensity_preserving, mask;
    frame_->get().convertTo(frame, CV_32F);
+   frame = reshapeForProcessing(frame);
    warper->warpImage(frame, intensity_preserving, mask, D);
-   return reshapeForOutput(mask, CV_32F);
+   return reshape_for_output ? reshapeForOutput(mask, CV_32F) : mask;
 }

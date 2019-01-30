@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <functional>
 #include <thread>
+#include <condition_variable>
 #include <boost/filesystem.hpp>
 #include <iostream>
 #include <boost/filesystem/fstream.hpp>

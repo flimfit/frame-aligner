@@ -1,5 +1,6 @@
 #pragma once
 #include "Cache.h"
+#include "Cv3dUtils.h"
 #include <opencv2/core.hpp>
 #include <iostream>
 #include <boost/filesystem.hpp>
