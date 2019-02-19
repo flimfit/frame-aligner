@@ -32,6 +32,7 @@ GpuSupportInformation GpuFrameWarper::getGpuSupportInformation()
       }
       std::cout << "Could not load CUDA: " << _cudaGetErrorEnum(code) << ", will fall back on CPU\n";
       support_information.supported = false;
+      return support_information;
    }
 
    if (!checkCudaCapabilities(3, 0))
