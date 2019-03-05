@@ -5,7 +5,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(CheckLanguage)
 
 find_package(OpenCV 3.1 REQUIRED highgui core imgproc imgcodecs videoio photo)
-find_package(FFTW REQUIRED)
+find_package(FFTW3 CONFIG REQUIRED)
 find_package(TIFF REQUIRED)
 find_package(dlib REQUIRED)
 find_package(Boost COMPONENTS serialization filesystem iostreams)
@@ -76,7 +76,7 @@ target_link_libraries(FrameAligner PUBLIC dlib::dlib
                                           ${OpenCV_LIBS}
                                           ${EXTRA_LIBRARIES}
                                           ${TIFF_LIBRARIES}
-                                          ${FFTW_LIBRARIES})
+                                          FFTW3::fftw3)
 
 target_include_directories(FrameAligner PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
                                                ${OpenCV_INCLUDE_DIRS}
