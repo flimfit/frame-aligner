@@ -15,74 +15,74 @@
 # ########################################################################
 
 
-# Locate the FFTW (http://www.fftw.org/) Framework.
+# Locate the FFTW3 (http://www.FFTW3.org/) Framework.
 #
 # Defines the following variables:
 #
-#   FFTW_FOUND - Found the FFTW framework
-#   FFTW_INCLUDE_DIRS - Include directories
+#   FFTW3_FOUND - Found the FFTW3 framework
+#   FFTW3_INCLUDE_DIRS - Include directories
 #
 # Also defines the library variables below as normal
 # variables.  These contain debug/optimized keywords when
 # a debugging library is found.
 #
-#   FFTW_LIBRARIES - libfftw
+#   FFTW3_LIBRARIES - libFFTW3
 #
 # Accepts the following variables as input:
 #
-#   FFTW_ROOT - (as a CMake or environment variable)
-#                The root directory of the fftw install prefix
+#   FFTW3_ROOT - (as a CMake or environment variable)
+#                The root directory of the FFTW3 install prefix
 #
 #   FIND_LIBRARY_USE_LIB64_PATHS - Global property that controls whether 
-#               findFFTW should search for 64bit or 32bit libs
+#               findFFTW3 should search for 64bit or 32bit libs
 #-----------------------------------------------
 # Example Usage:
 #
-#    find_package(FFTW REQUIRED)
-#    include_directories(${FFTW_INCLUDE_DIRS})
+#    find_package(FFTW3 REQUIRED)
+#    include_directories(${FFTW3_INCLUDE_DIRS})
 #
 #    add_executable(foo foo.cc)
-#    target_link_libraries(foo ${FFTW_LIBRARIES})
+#    target_link_libraries(foo ${FFTW3_LIBRARIES})
 #
 #-----------------------------------------------
 
-find_path(FFTW_INCLUDE_DIRS
-NAMES fftw3.h
+find_path(FFTW3_INCLUDE_DIRS
+NAMES FFTW3.h
 HINTS
-    ${FFTW_ROOT}/include
-    ${FFTW_ROOT}/api
-    ${FFTW_ROOT}
-    $ENV{FFTW_ROOT}/include
-    $ENV{FFTW_ROOT}/api
-    ENV FFTW_ROOT
+    ${FFTW3_ROOT}/include
+    ${FFTW3_ROOT}/api
+    ${FFTW3_ROOT}
+    $ENV{FFTW3_ROOT}/include
+    $ENV{FFTW3_ROOT}/api
+    ENV FFTW3_ROOT
 PATHS
     /usr/include
     /usr/local/include
 )
-mark_as_advanced( FFTW_INCLUDE_DIRS )
+mark_as_advanced( FFTW3_INCLUDE_DIRS )
 
-find_library( FFTW_DOUBLE_PRECISION_LIBRARIES
-NAMES fftw3 libfftw3-3
+find_library( FFTW3_DOUBLE_PRECISION_LIBRARIES
+NAMES FFTW3 libFFTW3-3
 HINTS
-    ${FFTW_ROOT}/lib
-    ${FFTW_ROOT}/.libs
-    ${FFTW_ROOT}
-    $ENV{FFTW_ROOT}/lib
-    $ENV{FFTW_ROOT}/.libs
-    ENV FFTW_ROOT
+    ${FFTW3_ROOT}/lib
+    ${FFTW3_ROOT}/.libs
+    ${FFTW3_ROOT}
+    $ENV{FFTW3_ROOT}/lib
+    $ENV{FFTW3_ROOT}/.libs
+    ENV FFTW3_ROOT
 PATHS
     /usr/lib
     /usr/local/lib
-DOC "FFTW dynamic library"
+DOC "FFTW3 dynamic library"
 )
-mark_as_advanced( FFTW_DOUBLE_PRECISION_LIBRARIES )
+mark_as_advanced( FFTW3_DOUBLE_PRECISION_LIBRARIES )
 
-set( FFTW_LIBRARIES ${FFTW_DOUBLE_PRECISION_LIBRARIES} )
-mark_as_advanced( FFTW_LIBRARIES )
+set( FFTW3_LIBRARIES ${FFTW3_DOUBLE_PRECISION_LIBRARIES} )
+mark_as_advanced( FFTW3_LIBRARIES )
 
 include( FindPackageHandleStandardArgs )
-FIND_PACKAGE_HANDLE_STANDARD_ARGS( FFTW DEFAULT_MSG FFTW_LIBRARIES FFTW_INCLUDE_DIRS )
+FIND_PACKAGE_HANDLE_STANDARD_ARGS( FFTW3 DEFAULT_MSG FFTW3_LIBRARIES FFTW3_INCLUDE_DIRS )
 
-if( NOT FFTW_FOUND )
-message( STATUS "FindFFTW looked for double precision libraries named: fftw3 or libfftw3-3" )
+if( NOT FFTW3_FOUND )
+message( STATUS "FindFFTW3 looked for double precision libraries named: FFTW3 or libFFTW3-3" )
 endif()
