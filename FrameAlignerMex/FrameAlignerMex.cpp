@@ -141,7 +141,7 @@ void mexFunction(int nlhs, mxArray *plhs[],
             AssertInputCondition(nlhs >= 1);
 
             int frame = (int) mxGetScalar(prhs[2]);
-            auto& result = aligner->getRealignmentResult(frame);
+            auto result = aligner->getRealignmentResult(frame);
 
             if (!result.done) throw std::runtime_error("Result not ready");
 
