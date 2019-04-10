@@ -19,13 +19,6 @@ if(CMAKE_CUDA_COMPILER AND (NOT APPLE OR CMAKE_CXX_COMPILER_ID MATCHES "AppleCla
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -arch=sm_30 -w")
 endif()
 
-configure_msvc_runtime("static")
-
-#if(APPLE)
-#    set(EXTRA_LIBRARIES "-framework Accelerate ${FFTW_LIBRARIES}") # for dlib
-#endif()
-
-
 set(SOURCE
    AbstractFrameAligner.cpp
    RigidFrameAligner.cpp
@@ -90,6 +83,7 @@ target_include_directories(FrameAligner PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
     $<$<CONFIG:DEVEL>:-Xcompiler ${CMAKE_CXX_FLAGS_DEVEL}>
     $<$<CONFIG:STRICT>:-Xcompiler ${CMAKE_CXX_FLAGS_STRICT}>
     $<$<CONFIG:RELEASE>:-Xcompiler ${CMAKE_CXX_FLAGS_RELEASE}>
+    $<$<CONFIG:RELWITHDEBINFO>:-Xcompiler ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}>
     $<$<CONFIG:DEBUG>:-Xcompiler ${CMAKE_CXX_FLAGS_DEBUG}>  
     $<$<CONFIG:HOSTDEBUG>:-Xcompiler ${CMAKE_CXX_FLAGS_HOSTDEBUG}>
     $<$<CONFIG:DEVICEDEBUG>:-Xcompiler ${CMAKE_CXX_FLAGS_DEVICEDEBUG}> 
