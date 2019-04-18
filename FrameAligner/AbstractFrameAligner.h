@@ -88,7 +88,7 @@ public:
    virtual void shiftPixel(int frame_t, double& x, double& y, double& z) = 0;
    virtual double getFrameCorrelation(int frame_t) { return 1.; }
    virtual double getFrameCoverage(int frame_t) { return 1.; }
-   virtual void setNumberOfFrames(int n_frames_) { n_frames = n_frames_; }
+   //virtual void setNumberOfFrames(int n_frames_) { n_frames = n_frames_; }
 
    virtual void writeRealignmentInfo(std::string filename) {};
 
@@ -111,7 +111,6 @@ protected:
    RealignmentParameters realign_params;
    ImageScanParameters image_params;
    cv::Mat reference;
-   int n_frames = 1;
 
    std::map<size_t,RealignmentResult> results;
 };

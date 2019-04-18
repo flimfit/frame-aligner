@@ -4,6 +4,7 @@
 
 #include "AbstractFrameAligner.h"
 #include <atomic>
+#include <map>
 
 class Transform
 {
@@ -38,7 +39,7 @@ public:
 
    bool frameReady(int frame)
    {
-      return frames_complete == n_frames;
+      return frame_transform.find(frame + 1) != frame_transform.end();
    }
 
    RealignmentType getType() { return realign_params.type; };
@@ -56,7 +57,7 @@ private:
    void interpolate(Transform& t1, Transform& t2, double frame, cv::Mat& affine, cv::Point2d& shift);
    void getAffine(double frame, cv::Mat& affine, cv::Point2d& shift);
 
-   std::vector<Transform> frame_transform;
+   std::map<size_t,Transform> frame_transform;
 
    double cache_frame = -1;
    cv::Mat cache_affine;

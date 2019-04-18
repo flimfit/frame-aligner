@@ -69,18 +69,6 @@ bool FrameWarpAligner::frameReady(int frame)
    return (results[frame].done);
 }
 
-void FrameWarpAligner::setNumberOfFrames(int n_frames_)
-{
-   n_frames = n_frames_;
-
-   Dstore.clear();
-   results.clear();
-   
-   Dstore.resize(n_frames);
-   //results.resize(n_frames);
-}
-
-
 void FrameWarpAligner::clearTemp()
 {
    warper->clearTemp();

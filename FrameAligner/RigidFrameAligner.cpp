@@ -5,7 +5,7 @@ RigidFrameAligner::RigidFrameAligner(RealignmentParameters params)
 {
    realign_params = params;
    frames_complete = 0;
-   frame_transform.push_back(Transform(0.0));
+   frame_transform[0] = Transform(0.0);
 }
 
 bool RigidFrameAligner::empty()
@@ -21,7 +21,6 @@ void RigidFrameAligner::clear()
 void RigidFrameAligner::setReference(int frame_t, const cv::Mat& reference_)
 {
    frame_transform.clear();
-   frame_transform.resize(n_frames+1);
    frames_complete = 0;
 
    reference_.copyTo(reference);
@@ -145,10 +144,10 @@ void RigidFrameAligner::getAffine(double frame, cv::Mat& affine, cv::Point2d& sh
       affine = cv::Mat::eye(2, 3, CV_64F);
       shift = cv::Point2d(0, 0);
    }
-   else if (frame >= frame_transform.back().frame)
-   {
-      interpolate(frame_transform.back(), frame_transform.back(), frame, affine, shift);
-   }
+//   else if (frame >= frame_transform.back().frame)
+//   {
+//      interpolate(frame_transform.back(), frame_transform.back(), frame, affine, shift);
+//   }
    else
    {
       int idx = 0;

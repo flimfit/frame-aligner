@@ -6,6 +6,7 @@
 #include <array>
 #include <memory>
 #include <list>
+#include <map>
 #include <opencv2/opencv.hpp>
 #include <dlib/optimization.h>
 #include "Cv3dUtils.h"
@@ -58,8 +59,7 @@ protected:
 
    cv::Point3d Dlast;
 
-   std::vector<std::vector<cv::Point3d>> Dstore;
-   //std::vector<RealignmentResult> results;
+   std::map<size_t,std::vector<cv::Point3d>> Dstore;
 
    int n_dim = 2;
    int nD = 10;
