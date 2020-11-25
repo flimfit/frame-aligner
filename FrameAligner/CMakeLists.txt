@@ -4,7 +4,7 @@ project(FrameAligner LANGUAGES CXX)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(CheckLanguage)
 
-find_package(OpenCV 3.1 REQUIRED highgui core imgproc imgcodecs videoio photo)
+find_package(OpenCV 4 REQUIRED highgui core imgproc imgcodecs videoio photo)
 find_package(FFTW3 CONFIG REQUIRED)
 find_package(TIFF REQUIRED)
 find_package(dlib REQUIRED)

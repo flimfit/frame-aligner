@@ -1,5 +1,6 @@
 #include "RigidFrameAligner.h"
 #include <opencv2/imgproc.hpp>
+#include <opencv2/imgproc/types_c.h>
 
 RigidFrameAligner::RigidFrameAligner(RealignmentParameters params)
 {
