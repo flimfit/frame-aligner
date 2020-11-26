@@ -768,7 +768,7 @@ void check(T result, char const *const func, const char *const file, int const l
                 file, line, static_cast<unsigned int>(result), _cudaGetErrorEnum(result), func);
 		DEVICE_RESET
         // Make sure we call CUDA Device Reset before exiting
-        throw; //(EXIT_FAILURE); //throw;
+        throw std::runtime_error(_cudaGetErrorEnum(result)); //(EXIT_FAILURE); //throw;
     }
 }
 
@@ -1015,8 +1015,15 @@ inline bool checkCudaCapabilities(int major_version, int minor_version)
     deviceProp.minor = 0;
     int dev;
 
-    checkCudaErrors(cudaGetDevice(&dev));
-    checkCudaErrors(cudaGetDeviceProperties(&deviceProp, dev));
+    try 
+    {
+       checkCudaErrors(cudaGetDevice(&dev));
+       checkCudaErrors(cudaGetDeviceProperties(&deviceProp, dev));
+    }
+    catch (std::exception e)
+    {
+       return false;
+    }
 
     if ((deviceProp.major > major_version) ||
         (deviceProp.major == major_version && deviceProp.minor >= minor_version))
